@@ -33,17 +33,16 @@
                 </form>
             </section>
 
-            <div id="recordSection" class="hidden">
-                <form id="recordForm">
+            <div id="recordSection" class="hidden main-content-wrapper">
+                
+                <form id="recordForm" class="form-wrapper">
                     <h2>新增或更新紀錄 (10分鐘內會自動合併)</h2>
-                    
                     <div class="record-type-selector">
                         <button type="button" class="record-type-btn active" data-form="diet">飲食</button>
                         <button type="button" class="record-type-btn" data-form="output">排泄</button>
                         <button type="button" class="record-type-btn" data-form="med">用藥</button>
                         <button type="button" class="record-type-btn" data-form="other">其他</button>
                     </div>
-
                     <div class="form-content">
                         <div id="diet-fields" class="form-section active">
                             <div class="multi-select-container">
@@ -55,10 +54,24 @@
                                 </div>
                             </div>
                             <input type="text" class="stateful-input" data-key="dietNotes" placeholder="附註描述 (例如: 半碗、8分滿)">
-                            <input type="number" class="stateful-input" data-key="waterAmount" placeholder="估計水分 (ml)">
+                            <div class="input-group">
+                                <input type="number" class="stateful-input" id="waterAmountInput" data-key="waterAmount" placeholder="估計水分 (ml)">
+                                <div class="quick-add-buttons">
+                                    <button type="button" class="btn-quick-add" data-target-input="waterAmountInput" data-amount="50">+50</button>
+                                    <button type="button" class="btn-quick-add" data-target-input="waterAmountInput" data-amount="100">+100</button>
+                                    <button type="button" class="btn-quick-add" data-target-input="waterAmountInput" data-amount="150">+150</button>
+                                </div>
+                            </div>
                         </div>
                         <div id="output-fields" class="form-section">
-                             <input type="number" class="stateful-input" data-key="urineOutput" placeholder="排尿量 (ml)">
+                            <div class="input-group">
+                                <input type="number" class="stateful-input" id="urineOutputInput" data-key="urineOutput" placeholder="排尿量 (ml)">
+                                <div class="quick-add-buttons">
+                                    <button type="button" class="btn-quick-add" data-target-input="urineOutputInput" data-amount="50">+50</button>
+                                    <button type="button" class="btn-quick-add" data-target-input="urineOutputInput" data-amount="100">+100</button>
+                                    <button type="button" class="btn-quick-add" data-target-input="urineOutputInput" data-amount="150">+150</button>
+                                </div>
+                            </div>
                             <input type="text" class="stateful-input" data-key="bowelMovement" placeholder="排便情況">
                         </div>
                         <div id="med-fields" class="form-section">
@@ -66,17 +79,16 @@
                             <button type="button" id="addMedicationBtn" class="btn btn-info">+ 新增用藥項目</button>
                         </div>
                         <div id="other-fields" class="form-section">
-                             <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
+                            <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
                         </div>
                     </div>
-
                     <div class="form-actions">
                         <button type="button" id="clearFormBtn" class="btn btn-secondary">清除此筆</button>
                         <button type="submit" id="addLogBtn" class="btn btn-success">新增/更新紀錄</button>
                     </div>
                 </form>
 
-                <section class="records-section">
+                <section class="records-section table-wrapper-section">
                     <h2>紀錄總覽</h2>
                     <div class="table-wrapper">
                         <table id="recordsTable">
