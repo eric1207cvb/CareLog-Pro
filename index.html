@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CareLog Pro - 最終畢業版</title>
+    <title>CareLog Pro - 專業版</title>
     <link rel="icon" href="data:,">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="style.css">
@@ -11,7 +11,7 @@
 <body>
     <div class="container">
         <header>
-            <h1>CareLog Pro - 最終畢業版</h1>
+            <h1>CareLog Pro</h1>
         </header>
 
         <main>
@@ -21,20 +21,20 @@
                     <select id="patientSelector">
                         <option value="">-- 請選擇或新增病人 --</option>
                     </select>
-                    <button id="newPatientBtn">＋ 新增病人</button>
+                    <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
                 </div>
-                <div id="patientForm" class="hidden">
-                    <input type="text" id="patientName" placeholder="病人姓名 (必填)">
+                <form id="patientForm" class="hidden">
+                    <input type="text" id="patientName" placeholder="病人姓名 (必填)" required>
                     <input type="text" id="patientId" placeholder="病床號/房號">
                     <div class="patient-form-actions">
-                        <button id="savePatientBtn">儲存病人</button>
-                        <button id="cancelPatientBtn" type="button">取消</button>
+                        <button type="submit" id="savePatientBtn" class="btn btn-success">儲存病人</button>
+                        <button type="button" id="cancelPatientBtn" class="btn btn-secondary">取消</button>
                     </div>
-                </div>
+                </form>
             </section>
 
             <div id="recordSection" class="hidden">
-                <div id="recordForm">
+                <form id="recordForm">
                     <h2>新增或更新紀錄 (10分鐘內會自動合併)</h2>
                     
                     <div class="record-type-selector">
@@ -47,15 +47,14 @@
                     <div class="form-content">
                         <div id="diet-fields" class="form-section active">
                             <div class="multi-select-container">
-                                <label>飲食內容 (最多5項)</label>
+                                <label for="dietContentInput">飲食內容 (最多5項，可按Enter新增自訂項目)</label>
                                 <div id="diet-tags-container" class="tags-container"></div>
                                 <div class="input-with-suggestions">
-                                    <input type="text" id="dietContentInput" placeholder="在此輸入並搜尋品項...">
+                                    <input type="text" id="dietContentInput" placeholder="在此輸入並搜尋或按Enter新增...">
                                     <div id="diet-suggestions" class="suggestions-list hidden"></div>
                                 </div>
                             </div>
-                            <input type="text" class="stateful-input" data-key="intakeDescription" placeholder="份量描述">
-                            <input type="text" class="stateful-input" data-key="intakeAmount" placeholder="總量">
+                            <input type="text" class="stateful-input" data-key="dietNotes" placeholder="附註描述 (例如: 半碗、8分滿)">
                             <input type="number" class="stateful-input" data-key="waterAmount" placeholder="估計水分 (ml)">
                         </div>
                         <div id="output-fields" class="form-section">
@@ -64,7 +63,7 @@
                         </div>
                         <div id="med-fields" class="form-section">
                             <div id="medications-list"></div>
-                            <button type="button" id="addMedicationBtn">+ 新增用藥項目</button>
+                            <button type="button" id="addMedicationBtn" class="btn btn-info">+ 新增用藥項目</button>
                         </div>
                         <div id="other-fields" class="form-section">
                              <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
@@ -72,10 +71,10 @@
                     </div>
 
                     <div class="form-actions">
-                        <button type="button" id="clearFormBtn">清除此筆</button>
-                        <button type="button" id="addLogBtn">新增/更新紀錄</button>
+                        <button type="button" id="clearFormBtn" class="btn btn-secondary">清除此筆</button>
+                        <button type="submit" id="addLogBtn" class="btn btn-success">新增/更新紀錄</button>
                     </div>
-                </div>
+                </form>
 
                 <section class="records-section">
                     <h2>紀錄總覽</h2>
@@ -85,7 +84,8 @@
                                 <tr>
                                     <th>時間</th>
                                     <th>飲食</th>
-                                    <th>攝取/水分</th>
+                                    <th>附註描述</th>
+                                    <th>水分 (ml)</th>
                                     <th>排泄</th>
                                     <th>用藥</th>
                                     <th>特殊觀察</th>
@@ -99,6 +99,7 @@
             </div>
         </main>
     </div>
+    
     <script src="script.js"></script>
 </body>
 </html>
