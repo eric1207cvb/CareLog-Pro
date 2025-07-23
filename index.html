@@ -13,7 +13,6 @@
         <header>
             <h1>CareLog Pro</h1>
         </header>
-
         <main>
             <section class="patient-management">
                 <h2>病患管理</h2>
@@ -21,6 +20,7 @@
                     <select id="patientSelector">
                         <option value="">-- 請選擇或新增病人 --</option>
                     </select>
+                    <button type="button" id="deletePatientBtn" class="btn btn-danger" disabled>刪除此病人</button>
                     <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
                 </div>
                 <form id="patientForm" class="hidden">
@@ -32,12 +32,9 @@
                     </div>
                 </form>
             </section>
-
             <div id="recordSection" class="hidden main-content-wrapper">
-                
                 <form id="recordForm" class="form-wrapper">
                     <h2>新增或更新紀錄 (時間差不到10分鐘的會自動合併)</h2>
-                    
                     <div class="record-type-selector">
                         <button type="button" class="record-type-btn active" data-form="diet">飲食</button>
                         <button type="button" class="record-type-btn" data-form="output">排泄</button>
@@ -75,12 +72,10 @@
                             </div>
                             <input type="text" class="stateful-input" data-key="bowelMovement" placeholder="排便情況">
                         </div>
-                        
                         <div id="med-fields" class="form-section">
                             <div id="medications-list"></div>
                             <button type="button" id="addMedicationBtn" class="btn btn-info">+ 新增用藥項目</button>
                         </div>
-                        
                         <div id="other-fields" class="form-section">
                             <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
                         </div>
@@ -90,7 +85,6 @@
                         <button type="submit" id="addLogBtn" class="btn btn-success">新增/更新紀錄</button>
                     </div>
                 </form>
-
                 <section class="records-section table-wrapper-section">
                     <h2>紀錄總覽</h2>
                     <div class="table-wrapper">
@@ -114,7 +108,6 @@
             </div>
         </main>
     </div>
-    
     <script src="script.js"></script>
 </body>
 </html>
