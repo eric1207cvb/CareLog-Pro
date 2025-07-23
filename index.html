@@ -12,16 +12,12 @@
 </head>
 <body>
     <div class="container">
-        <header>
-            <h1>CareLog Pro</h1>
-        </header>
+        <header><h1>CareLog Pro</h1></header>
         <main>
             <section class="patient-management">
                 <h2>病患管理</h2>
                 <div class="patient-selector-wrapper">
-                    <select id="patientSelector">
-                        <option value="">-- 請選擇或新增病人 --</option>
-                    </select>
+                    <select id="patientSelector"><option value="">-- 請選擇或新增病人 --</option></select>
                     <button type="button" id="exportPdfBtn" class="btn btn-info" disabled>匯出 PDF</button>
                     <button type="button" id="deletePatientBtn" class="btn btn-danger" disabled>刪除此病人</button>
                     <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
@@ -95,14 +91,7 @@
                             <table id="recordsTable">
                                 <thead>
                                     <tr>
-                                        <th>時間</th>
-                                        <th>飲食</th>
-                                        <th>附註描述</th>
-                                        <th>水分 (ml)</th>
-                                        <th>排泄</th>
-                                        <th>用藥</th>
-                                        <th>特殊觀察</th>
-                                        <th>操作</th>
+                                        <th>時間</th><th>飲食</th><th>附註描述</th><th>水分 (ml)</th><th>排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
@@ -111,9 +100,7 @@
                     </section>
                     <section class="chart-section">
                         <h2>最近七日飲水與排尿量趨勢圖</h2>
-                        <div class="chart-container">
-                            <canvas id="ioChart"></canvas>
-                        </div>
+                        <div class="chart-container"><canvas id="ioChart"></canvas></div>
                     </section>
                 </div>
             </div>

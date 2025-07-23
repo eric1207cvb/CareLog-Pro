@@ -1,16 +1,11 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // --- Constants ---
     const MERGE_WINDOW_MINUTES = 10;
     const DIET_OPTIONS = ["水", "牛奶", "豆漿", "果汁", "茶", "安素", "完膳", "補體素", "早餐", "午餐", "晚餐", "點心", "白飯", "稀飯", "麵食", "水果", "蔬菜", "魚肉", "雞肉", "豬肉", "餅乾"];
     const MED_ROUTES = ['口服', '針劑', '塗抹', '吸入', '外用', '其他'];
-
-    // --- State Variables ---
     let allPatientData = JSON.parse(localStorage.getItem('carelog-all-patients')) || {};
     let currentPatientInternalId = null;
     let currentRecordState = {};
     let ioChartInstance = null;
-
-    // --- DOM Elements ---
     const dom = {
         patientSelector: document.getElementById('patientSelector'),
         newPatientBtn: document.getElementById('newPatientBtn'),
@@ -39,7 +34,6 @@ document.addEventListener('DOMContentLoaded', () => {
         ioChartCanvas: document.getElementById('ioChart'),
     };
 
-    // --- DATA MIGRATION ---
     function migrateOldData() {
         if (localStorage.getItem('carelog-migrated-to-dietNotes')) return;
         let wasMigrated = false;
@@ -60,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('carelog-migrated-to-dietNotes', 'true');
         }
     }
+
     function migrateMedicationData() {
         if (localStorage.getItem('carelog-migrated-to-meds-structure')) return;
         let wasMigrated = false;
@@ -82,6 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
             localStorage.setItem('carelog-migrated-to-meds-structure', 'true');
         }
     }
+
     function migrateCorruptedDietContent() {
         if (localStorage.getItem('carelog-migrated-dietcontent-string-v2')) return;
         let wasMigrated = false;
@@ -100,39 +96,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // --- HELPER FUNCTIONS ---
     function initializeState() {
         currentRecordState = { dietContent: [], medications: [] };
     }
+
     function saveAllData() {
         localStorage.setItem('carelog-all-patients', JSON.stringify(allPatientData));
     }
+
     function mergeDataIntoRecord(targetRecord, newData) {
-        // For numeric values, we add them up.
         ['waterAmount', 'urineOutput'].forEach(key => {
             const oldValue = parseFloat(targetRecord[key]) || 0;
             const newValue = parseFloat(newData[key]) || 0;
             if (newValue > 0) targetRecord[key] = oldValue + newValue;
         });
-
-        // ✨ FIX for dietNotes: Overwrite with new data if it exists.
         ['dietNotes', 'bowelMovement', 'specialObservation'].forEach(key => {
             if (newData[key]) {
-                targetRecord[key] = (targetRecord[key] ? targetRecord[key] + ', ' : '') + newData[key];
-                // A slightly better approach - simple append
-                // If you want pure overwrite, use: targetRecord[key] = newData[key];
+                targetRecord[key] = newData[key];
             }
         });
-
-        // For arrays, we merge unique values.
         targetRecord.dietContent = Array.from(new Set([...(targetRecord.dietContent || []), ...(newData.dietContent || [])]));
-        
-        // ✨ FIX for medications: Corrected variable shadowing bug.
         const newMeds = (newData.medications || []).filter(med => med.name || med.route || med.dosage);
         targetRecord.medications = (targetRecord.medications || []).concat(newMeds);
-        
         targetRecord.time = new Date().toISOString();
     }
+
     function findMergeableRecord(patientData) {
         if (!patientData || !patientData.records || patientData.records.length === 0) return null;
         const lastRecord = patientData.records[patientData.records.length - 1];
@@ -141,13 +129,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((now - lastRecordTime) / 60000 < MERGE_WINDOW_MINUTES) return lastRecord;
         return null;
     }
+
     function updatePatientActionButtonsState() {
         const isPatientSelected = !!currentPatientInternalId;
         if (dom.deletePatientBtn) dom.deletePatientBtn.disabled = !isPatientSelected;
         if (dom.exportPdfBtn) dom.exportPdfBtn.disabled = !isPatientSelected;
     }
 
-    // --- CHART & PDF FUNCTIONS ---
     function processDataForChart(records) {
         const last7DaysData = {};
         const labels = [];
@@ -170,10 +158,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const outputData = Object.values(last7DaysData).map(day => day.output);
         return { labels, intakeData, outputData };
     }
-    function renderChart(patientData) {
+
+    function renderChart(patientData, optionsOverrides = {}) {
         if (!dom.ioChartCanvas) return;
         const chartData = processDataForChart(patientData.records);
-        if (ioChartInstance) ioChartInstance.destroy();
+        if (ioChartInstance) {
+            ioChartInstance.destroy();
+        }
+        const defaultOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: {},
+            scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
+            plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
+        };
+        const finalOptions = { ...defaultOptions, ...optionsOverrides };
         ioChartInstance = new Chart(dom.ioChartCanvas, {
             type: 'bar',
             data: {
@@ -186,9 +185,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1
                 }]
             },
-            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } }, plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } } }
+            options: finalOptions
         });
     }
+
     function exportPatientDataAsPDF() {
         if (!currentPatientInternalId || typeof html2pdf === 'undefined') return;
         const patientData = allPatientData[currentPatientInternalId];
@@ -203,14 +203,19 @@ document.addEventListener('DOMContentLoaded', () => {
         headerEl.className = 'pdf-header';
         headerEl.innerHTML = `<h2>${patientData.name} - 照護紀錄報告</h2><p>病床號/房號：${patientData.id || '未提供'}</p><p>報告產出日期：${new Date().toLocaleDateString('zh-TW')}</p><div class="pdf-header-summary"><p>近七日日均攝取水量：<strong>${avgIntake} ml</strong></p><p>近七日日均總排尿量：<strong>${avgOutput} ml</strong></p></div>`;
         printableArea.prepend(headerEl);
-        const options = {
-            margin: 15, filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
-            image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-        };
-        html2pdf().from(printableArea).set(options).save().then(() => { headerEl.remove(); });
+        renderChart(patientData, { animation: false });
+        setTimeout(() => {
+            const options = {
+                margin: 15, filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
+                image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().from(printableArea).set(options).save().then(() => {
+                headerEl.remove();
+                renderChart(patientData);
+            });
+        }, 100);
     }
 
-    // --- UI RENDERING FUNCTIONS ---
     function populatePatientSelector() {
         const currentSelection = dom.patientSelector.value;
         dom.patientSelector.innerHTML = '<option value="">-- 請選擇或新增病人 --</option>';
@@ -222,6 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         if (currentSelection) dom.patientSelector.value = currentSelection;
     }
+
     function selectPatient(internalId) {
         currentPatientInternalId = internalId;
         clearFormAndState();
@@ -241,6 +247,7 @@ document.addEventListener('DOMContentLoaded', () => {
         setActiveForm('diet');
         updatePatientActionButtonsState();
     }
+
     function setActiveForm(formType) {
         document.querySelectorAll('.record-type-btn').forEach(btn => btn.classList.remove('active'));
         dom.allFormSections.forEach(section => section.classList.remove('active'));
@@ -249,6 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (activeButton) activeButton.classList.add('active');
         if (activeSection) activeSection.classList.add('active');
     }
+
     function clearFormAndState() {
         initializeState();
         dom.recordForm.reset();
@@ -256,39 +264,60 @@ document.addEventListener('DOMContentLoaded', () => {
         renderDietTags();
         setActiveForm('diet');
     }
+
     function renderDietTags() {
         dom.dietTagsContainer.innerHTML = "";
         (currentRecordState.dietContent || []).forEach((item, index) => {
-            const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = item;
-            const removeBtn = document.createElement('button'); removeBtn.type = 'button'; removeBtn.className = 'tag-remove-btn'; removeBtn.textContent = '×'; removeBtn.dataset.index = index;
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = item;
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'tag-remove-btn';
+            removeBtn.textContent = '×';
+            removeBtn.dataset.index = index;
             tag.appendChild(removeBtn);
             dom.dietTagsContainer.appendChild(tag);
         });
     }
+
     function renderDietSuggestions(query) {
         dom.dietSuggestions.innerHTML = '';
-        if (!query) { dom.dietSuggestions.classList.add('hidden'); return; }
+        if (!query) {
+            dom.dietSuggestions.classList.add('hidden');
+            return;
+        }
         const filteredOptions = DIET_OPTIONS.filter(option => option.toLowerCase().includes(query.toLowerCase()) && !(currentRecordState.dietContent || []).includes(option));
         if (filteredOptions.length > 0) {
             filteredOptions.forEach(option => {
-                const item = document.createElement('div'); item.className = 'suggestion-item'; item.textContent = option;
+                const item = document.createElement('div');
+                item.className = 'suggestion-item';
+                item.textContent = option;
                 item.addEventListener('mousedown', e => {
                     e.preventDefault();
                     if ((currentRecordState.dietContent || []).length < 5) {
                         currentRecordState.dietContent.push(option);
-                        renderDietTags(); dom.dietContentInput.value = ''; dom.dietSuggestions.classList.add('hidden');
-                    } else { alert('最多只能選擇五項飲食內容。'); }
+                        renderDietTags();
+                        dom.dietContentInput.value = '';
+                        dom.dietSuggestions.classList.add('hidden');
+                    } else {
+                        alert('最多只能選擇五項飲食內容。');
+                    }
                 });
                 dom.dietSuggestions.appendChild(item);
             });
             dom.dietSuggestions.classList.remove('hidden');
-        } else { dom.dietSuggestions.classList.add('hidden'); }
+        } else {
+            dom.dietSuggestions.classList.add('hidden');
+        }
     }
+
     function renderMedicationsList() {
         dom.medicationsList.innerHTML = "";
         if (!currentRecordState.medications || currentRecordState.medications.length === 0) return;
         currentRecordState.medications.forEach((med, index) => {
-            const entryDiv = document.createElement('div'); entryDiv.className = 'medication-entry';
+            const entryDiv = document.createElement('div');
+            entryDiv.className = 'medication-entry';
             const routeOptions = MED_ROUTES.map(route => `<option value="${route}" ${med.route === route ? 'selected' : ''}>${route}</option>`).join('');
             const selectHTML = `<select data-med-index="${index}" data-med-key="route">${routeOptions}</select>`;
             entryDiv.innerHTML = `<input type="text" placeholder="藥品名稱" data-med-index="${index}" data-med-key="name" value="${med.name || ''}">
@@ -298,6 +327,7 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.medicationsList.appendChild(entryDiv);
         });
     }
+
     function renderTable(patientData) {
         if (!currentPatientInternalId) return;
         dom.recordsTableBody.innerHTML = '';
@@ -319,7 +349,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const dietNotesInfo = record.dietNotes || '---';
             const waterAmountInfo = record.waterAmount || '---';
             const outputInfo = `${record.urineOutput ? `尿:${record.urineOutput}ml` : ''}${record.bowelMovement ? ` 便:${record.bowelMovement}` : ''}` || '---';
-            const medInfo = (record.medications && record.medications.length > 0) ? record.medications.map(med => { if (!med.name && !med.dosage) return ''; return `${med.name || '未命名'} (${med.route || ''}, ${med.dosage || '未註明'})`; }).filter(Boolean).join('<br>') : '---';
+            const medInfo = (record.medications && record.medications.length > 0) ? record.medications.map(med => {
+                if (!med.name && !med.dosage) return '';
+                return `${med.name || '未命名'} (${med.route || ''}, ${med.dosage || '未註明'})`;
+            }).filter(Boolean).join('<br>') : '---';
             const observationInfo = record.specialObservation || '---';
             const actionsInfo = `<button class="delete-btn" data-id="${record.id}" title="刪除">🗑️</button>`;
             row.innerHTML = `<td>${timeInfo}</td><td>${dietInfo}</td><td>${dietNotesInfo}</td><td>${waterAmountInfo}</td><td>${outputInfo}</td><td>${medInfo}</td><td>${observationInfo}</td><td>${actionsInfo}</td>`;
@@ -368,15 +401,13 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
     dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(patientData); renderChart(patientData); } } } });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
-    dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪出病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
+    dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪除病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
     dom.exportPdfBtn.addEventListener('click', exportPatientDataAsPDF);
-
-    // --- Initial Load ---
     migrateOldData();
     migrateMedicationData();
     migrateCorruptedDietContent();
     initializeState();
     populatePatientSelector();
-    setActiveForm('diet');
+    setActiveForm("diet");
     updatePatientActionButtonsState();
 });
