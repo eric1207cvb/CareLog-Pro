@@ -8,6 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allPatientData = JSON.parse(localStorage.getItem('carelog-all-patients')) || {};
     let currentPatientInternalId = null;
     let currentRecordState = {};
+    let ioChartInstance = null;
 
     // --- DOM Elements ---
     const dom = {
@@ -33,6 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         dietContentInput: document.getElementById('dietContentInput'),
         dietTagsContainer: document.getElementById('diet-tags-container'),
         dietSuggestions: document.getElementById('diet-suggestions'),
+        ioChartCanvas: document.getElementById('ioChart'),
     };
 
     // --- DATA MIGRATION ---
@@ -117,8 +119,12 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         targetRecord.dietContent = Array.from(new Set([...(targetRecord.dietContent || []), ...(newData.dietContent || [])]));
-        const newMeds = (newData.medications || []).filter(m => m.name || m.route || m.dosage);
+        
+        // ✨✨✨ THE FIX IS HERE (Twin bug of the renderTable fix) ✨✨✨
+        // Use a different variable `med` for the inner loop to avoid shadowing
+        const newMeds = (newData.medications || []).filter(med => med.name || med.route || med.dosage);
         targetRecord.medications = (targetRecord.medications || []).concat(newMeds);
+        
         targetRecord.time = new Date().toISOString();
     }
     function findMergeableRecord(patientData) {
@@ -133,6 +139,60 @@ document.addEventListener('DOMContentLoaded', () => {
         if (dom.deletePatientBtn) {
             dom.deletePatientBtn.disabled = !currentPatientInternalId;
         }
+    }
+    function processDataForChart(records) {
+        const last7DaysData = {};
+        const labels = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const key = date.toISOString().split('T')[0];
+            const label = date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+            labels.push(label);
+            last7DaysData[key] = { intake: 0, output: 0 };
+        }
+        (records || []).forEach(record => {
+            const recordDateKey = record.time.split('T')[0];
+            if (last7DaysData[recordDateKey]) {
+                last7DaysData[recordDateKey].intake += parseFloat(record.waterAmount) || 0;
+                last7DaysData[recordDateKey].output += parseFloat(record.urineOutput) || 0;
+            }
+        });
+        const intakeData = Object.values(last7DaysData).map(day => day.intake);
+        const outputData = Object.values(last7DaysData).map(day => day.output);
+        return { labels, intakeData, outputData };
+    }
+    function renderChart(patientData) {
+        if (!dom.ioChartCanvas) return;
+        const chartData = processDataForChart(patientData.records);
+        if (ioChartInstance) {
+            ioChartInstance.destroy();
+        }
+        ioChartInstance = new Chart(dom.ioChartCanvas, {
+            type: 'bar',
+            data: {
+                labels: chartData.labels,
+                datasets: [{
+                    label: '攝取水量 (ml)',
+                    data: chartData.intakeData,
+                    backgroundColor: 'rgba(0, 123, 255, 0.5)',
+                    borderColor: 'rgba(0, 123, 255, 1)',
+                    borderWidth: 1
+                }, {
+                    label: '總排尿量 (ml)',
+                    data: chartData.outputData,
+                    backgroundColor: 'rgba(23, 162, 184, 0.5)',
+                    borderColor: 'rgba(23, 162, 184, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
+                plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
+            }
+        });
     }
 
     // --- UI RENDERING FUNCTIONS ---
@@ -151,13 +211,16 @@ document.addEventListener('DOMContentLoaded', () => {
         currentPatientInternalId = internalId;
         clearFormAndState();
         if (internalId) {
+            const patientData = allPatientData[internalId];
             dom.patientSelector.value = internalId;
             dom.recordSection.classList.remove('hidden');
-            renderTable();
+            renderTable(patientData);
+            renderChart(patientData);
         } else {
             dom.patientSelector.value = "";
             dom.recordSection.classList.add('hidden');
             if (dom.recordsTableBody) dom.recordsTableBody.innerHTML = '';
+            if (ioChartInstance) ioChartInstance.destroy();
         }
         dom.patientForm.classList.add('hidden');
         setActiveForm('diet');
@@ -220,9 +283,8 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.medicationsList.appendChild(entryDiv);
         });
     }
-    function renderTable() {
+    function renderTable(patientData) {
         if (!currentPatientInternalId) return;
-        const patientData = allPatientData[currentPatientInternalId];
         dom.recordsTableBody.innerHTML = '';
         const sortedRecords = (patientData.records || []).slice().sort((a, b) => new Date(b.time) - new Date(a.time));
         if (sortedRecords.length === 0) {
@@ -242,15 +304,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const dietNotesInfo = record.dietNotes || '---';
             const waterAmountInfo = record.waterAmount || '---';
             const outputInfo = `${record.urineOutput ? `尿:${record.urineOutput}ml` : ''}${record.bowelMovement ? ` 便:${record.bowelMovement}` : ''}` || '---';
-            
-            // ✨✨✨ THE FIX IS HERE: Use a different variable `med` for the inner loop ✨✨✨
-            const medInfo = (record.medications && record.medications.length > 0)
-                ? record.medications.map(med => { // Using 'med' instead of 'record'
-                    if (!med.name && !med.dosage) return '';
-                    return `${med.name || '未命名'} (${med.route || ''}, ${med.dosage || '未註明'})`;
-                }).filter(Boolean).join('<br>')
-                : '---';
-            
+            const medInfo = (record.medications && record.medications.length > 0) ? record.medications.map(med => { if (!med.name && !med.dosage) return ''; return `${med.name || '未命名'} (${med.route || ''}, ${med.dosage || '未註明'})`; }).filter(Boolean).join('<br>') : '---';
             const observationInfo = record.specialObservation || '---';
             const actionsInfo = `<button class="delete-btn" data-id="${record.id}" title="刪除">🗑️</button>`;
             row.innerHTML = `<td>${timeInfo}</td><td>${dietInfo}</td><td>${dietNotesInfo}</td><td>${waterAmountInfo}</td><td>${outputInfo}</td><td>${medInfo}</td><td>${observationInfo}</td><td>${actionsInfo}</td>`;
@@ -291,12 +345,13 @@ document.addEventListener('DOMContentLoaded', () => {
             message = '已新增紀錄！';
         }
         saveAllData();
-        renderTable();
+        renderTable(patientData);
+        renderChart(patientData);
         clearFormAndState();
         alert(message);
     });
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
-    dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(); } } } });
+    dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(patientData); renderChart(patientData); } } } });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
     dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪除病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
 
