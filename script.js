@@ -15,6 +15,8 @@ document.addEventListener('DOMContentLoaded', () => {
         patientSelector: document.getElementById('patientSelector'),
         newPatientBtn: document.getElementById('newPatientBtn'),
         deletePatientBtn: document.getElementById('deletePatientBtn'),
+        exportPdfBtn: document.getElementById('exportPdfBtn'),
+        printableArea: document.getElementById('printableArea'),
         patientForm: document.getElementById('patientForm'),
         savePatientBtn: document.getElementById('savePatientBtn'),
         cancelPatientBtn: document.getElementById('cancelPatientBtn'),
@@ -106,22 +108,26 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.setItem('carelog-all-patients', JSON.stringify(allPatientData));
     }
     function mergeDataIntoRecord(targetRecord, newData) {
+        // For numeric values, we add them up.
         ['waterAmount', 'urineOutput'].forEach(key => {
             const oldValue = parseFloat(targetRecord[key]) || 0;
             const newValue = parseFloat(newData[key]) || 0;
             if (newValue > 0) targetRecord[key] = oldValue + newValue;
         });
+
+        // ✨ FIX for dietNotes: Overwrite with new data if it exists.
         ['dietNotes', 'bowelMovement', 'specialObservation'].forEach(key => {
             if (newData[key]) {
-                const oldValues = (targetRecord[key] || '').split(', ').filter(Boolean);
-                const newValues = (newData[key] || '').split(', ').filter(Boolean);
-                targetRecord[key] = Array.from(new Set([...oldValues, ...newValues])).join(', ');
+                targetRecord[key] = (targetRecord[key] ? targetRecord[key] + ', ' : '') + newData[key];
+                // A slightly better approach - simple append
+                // If you want pure overwrite, use: targetRecord[key] = newData[key];
             }
         });
+
+        // For arrays, we merge unique values.
         targetRecord.dietContent = Array.from(new Set([...(targetRecord.dietContent || []), ...(newData.dietContent || [])]));
         
-        // ✨✨✨ THE FIX IS HERE (Twin bug of the renderTable fix) ✨✨✨
-        // Use a different variable `med` for the inner loop to avoid shadowing
+        // ✨ FIX for medications: Corrected variable shadowing bug.
         const newMeds = (newData.medications || []).filter(med => med.name || med.route || med.dosage);
         targetRecord.medications = (targetRecord.medications || []).concat(newMeds);
         
@@ -135,11 +141,13 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((now - lastRecordTime) / 60000 < MERGE_WINDOW_MINUTES) return lastRecord;
         return null;
     }
-    function updateDeletePatientButtonState() {
-        if (dom.deletePatientBtn) {
-            dom.deletePatientBtn.disabled = !currentPatientInternalId;
-        }
+    function updatePatientActionButtonsState() {
+        const isPatientSelected = !!currentPatientInternalId;
+        if (dom.deletePatientBtn) dom.deletePatientBtn.disabled = !isPatientSelected;
+        if (dom.exportPdfBtn) dom.exportPdfBtn.disabled = !isPatientSelected;
     }
+
+    // --- CHART & PDF FUNCTIONS ---
     function processDataForChart(records) {
         const last7DaysData = {};
         const labels = [];
@@ -165,34 +173,41 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderChart(patientData) {
         if (!dom.ioChartCanvas) return;
         const chartData = processDataForChart(patientData.records);
-        if (ioChartInstance) {
-            ioChartInstance.destroy();
-        }
+        if (ioChartInstance) ioChartInstance.destroy();
         ioChartInstance = new Chart(dom.ioChartCanvas, {
             type: 'bar',
             data: {
                 labels: chartData.labels,
                 datasets: [{
-                    label: '攝取水量 (ml)',
-                    data: chartData.intakeData,
-                    backgroundColor: 'rgba(0, 123, 255, 0.5)',
-                    borderColor: 'rgba(0, 123, 255, 1)',
-                    borderWidth: 1
+                    label: '攝取水量 (ml)', data: chartData.intakeData,
+                    backgroundColor: 'rgba(0, 123, 255, 0.5)', borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 1
                 }, {
-                    label: '總排尿量 (ml)',
-                    data: chartData.outputData,
-                    backgroundColor: 'rgba(23, 162, 184, 0.5)',
-                    borderColor: 'rgba(23, 162, 184, 1)',
-                    borderWidth: 1
+                    label: '總排尿量 (ml)', data: chartData.outputData,
+                    backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1
                 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
-                plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } }, plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } } }
         });
+    }
+    function exportPatientDataAsPDF() {
+        if (!currentPatientInternalId || typeof html2pdf === 'undefined') return;
+        const patientData = allPatientData[currentPatientInternalId];
+        const records = patientData.records || [];
+        const printableArea = dom.printableArea;
+        const chartData = processDataForChart(records);
+        const totalIntake = chartData.intakeData.reduce((sum, val) => sum + val, 0);
+        const totalOutput = chartData.outputData.reduce((sum, val) => sum + val, 0);
+        const avgIntake = totalIntake > 0 ? (totalIntake / 7).toFixed(0) : 0;
+        const avgOutput = totalOutput > 0 ? (totalOutput / 7).toFixed(0) : 0;
+        const headerEl = document.createElement('div');
+        headerEl.className = 'pdf-header';
+        headerEl.innerHTML = `<h2>${patientData.name} - 照護紀錄報告</h2><p>病床號/房號：${patientData.id || '未提供'}</p><p>報告產出日期：${new Date().toLocaleDateString('zh-TW')}</p><div class="pdf-header-summary"><p>近七日日均攝取水量：<strong>${avgIntake} ml</strong></p><p>近七日日均總排尿量：<strong>${avgOutput} ml</strong></p></div>`;
+        printableArea.prepend(headerEl);
+        const options = {
+            margin: 15, filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+        html2pdf().from(printableArea).set(options).save().then(() => { headerEl.remove(); });
     }
 
     // --- UI RENDERING FUNCTIONS ---
@@ -224,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         dom.patientForm.classList.add('hidden');
         setActiveForm('diet');
-        updateDeletePatientButtonState();
+        updatePatientActionButtonsState();
     }
     function setActiveForm(formType) {
         document.querySelectorAll('.record-type-btn').forEach(btn => btn.classList.remove('active'));
@@ -353,7 +368,8 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
     dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(patientData); renderChart(patientData); } } } });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
-    dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪除病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
+    dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪出病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
+    dom.exportPdfBtn.addEventListener('click', exportPatientDataAsPDF);
 
     // --- Initial Load ---
     migrateOldData();
@@ -362,5 +378,5 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeState();
     populatePatientSelector();
     setActiveForm('diet');
-    updateDeletePatientButtonState();
+    updatePatientActionButtonsState();
 });

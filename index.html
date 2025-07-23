@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -21,6 +22,7 @@
                     <select id="patientSelector">
                         <option value="">-- 請選擇或新增病人 --</option>
                     </select>
+                    <button type="button" id="exportPdfBtn" class="btn btn-info" disabled>匯出 PDF</button>
                     <button type="button" id="deletePatientBtn" class="btn btn-danger" disabled>刪除此病人</button>
                     <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
                 </div>
@@ -86,7 +88,7 @@
                         <button type="submit" id="addLogBtn" class="btn btn-success">新增/更新紀錄</button>
                     </div>
                 </form>
-                <div class="right-panel">
+                <div id="printableArea" class="right-panel">
                     <section class="records-section table-wrapper-section">
                         <h2>紀錄總覽</h2>
                         <div class="table-wrapper">
