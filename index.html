@@ -76,6 +76,7 @@
                             <button type="button" id="addMedicationBtn" class="btn btn-info">+ 新增用藥項目</button>
                         </div>
                         <div id="other-fields" class="form-section">
+                            <input type="number" class="stateful-input" data-key="bodyTemp" placeholder="體溫 (°C)" step="0.1" min="34" max="43">
                             <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
                         </div>
                     </div>
@@ -91,7 +92,7 @@
                             <table id="recordsTable">
                                 <thead>
                                     <tr>
-                                        <th>時間</th><th>飲食</th><th>附註描述</th><th>水分 (ml)</th><th>排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>
+                                        <th>時間</th><th>飲食</th><th>附註描述</th><th>水分 (ml)</th><th>體溫 (°C)</th><th>排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>
                                     </tr>
                                 </thead>
                                 <tbody></tbody>
