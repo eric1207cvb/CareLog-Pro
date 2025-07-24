@@ -417,10 +417,13 @@ th {
 }
 
 .chart-container {
+    position: relative;
     padding: 20px;
     background-color: var(--container-bg);
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md)
+    border-radius: var(--border-radius-md);
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 /* =================================

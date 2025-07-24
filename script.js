@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateDietSelectionUI(); // 使用新的飲食UI更新函式
     }
 
-    // --- NEW DIET UI FUNCTIONS ---
+    // --- DIET UI FUNCTIONS ---
     function renderDietOptionsGrid() {
         dom.dietOptionsGrid.innerHTML = '';
         DIET_OPTIONS.forEach(option => {
@@ -224,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             dom.dietOptionsGrid.appendChild(button);
         });
     }
-
     function updateDietSelectionUI() {
         const selectedItems = currentRecordState.dietContent || [];
         // 更新上方標籤
@@ -250,7 +249,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    // --- END NEW DIET UI FUNCTIONS ---
 
     function renderMedicationsList() {
         dom.medicationsList.innerHTML = "";
@@ -298,11 +296,10 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.patientSelector.addEventListener('change', () => selectPatient(dom.patientSelector.value));
     dom.recordTypeSelector.addEventListener('click', e => { const button = e.target.closest('.record-type-btn'); if (button) setActiveForm(button.dataset.form); });
     
-    // --- New Diet Event Listeners ---
+    // --- Diet Event Listeners ---
     function handleAddCustomDiet() {
         const customItem = dom.customDietInput.value.trim();
         if (!customItem) return;
-        
         const dietContent = currentRecordState.dietContent || [];
         if (dietContent.length >= 5) {
             alert('最多只能新增五項飲食內容。');
@@ -322,17 +319,15 @@ document.addEventListener('DOMContentLoaded', () => {
             handleAddCustomDiet();
         }
     });
-
     dom.dietOptionsGrid.addEventListener('click', e => {
         const target = e.target;
         if (target.matches('.diet-option-btn')) {
             const item = target.dataset.diet;
             const dietContent = currentRecordState.dietContent || [];
             const itemIndex = dietContent.indexOf(item);
-            
-            if (itemIndex > -1) { // 如果已存在，則移除
+            if (itemIndex > -1) {
                 dietContent.splice(itemIndex, 1);
-            } else { // 如果不存在，則加入
+            } else {
                 if (dietContent.length >= 5) {
                     alert('最多只能選擇五項飲食內容。');
                     return;
@@ -455,6 +450,5 @@ document.addEventListener('DOMContentLoaded', () => {
     populatePatientSelector();
     renderDietOptionsGrid(); // 初始化時就產生飲食選項按鈕
     setActiveForm('diet');
-
     updatePatientActionButtonsState();
 });
