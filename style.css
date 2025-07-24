@@ -416,6 +416,10 @@ th {
     white-space: nowrap
 }
 
+.right-panel {
+    min-width: 0; /* 解決 Grid 佈局中內容溢出的問題 */
+}
+
 .chart-container {
     position: relative;
     padding: 20px;
