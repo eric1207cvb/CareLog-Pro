@@ -133,38 +133,63 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     function exportPatientDataAsPDF() {
-        if (!currentPatientInternalId || typeof html2pdf === 'undefined') return;
-        const patientData = allPatientData[currentPatientInternalId];
-        const records = patientData.records || [];
-        const printableArea = dom.printableArea;
-        const chartData = processDataForChart(records);
-        const totalIntake = chartData.intakeData.reduce((sum, val) => sum + val, 0);
-        const avgIntake = totalIntake > 0 ? (totalIntake / 7).toFixed(0) : 0;
-        let tempSum = 0;
-        let tempCount = 0;
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        records.filter(r => new Date(r.time) >= sevenDaysAgo && r.bodyTemp).forEach(r => {
-            tempSum += parseFloat(r.bodyTemp);
-            tempCount++;
+    if (!currentPatientInternalId || typeof html2pdf === 'undefined') return;
+
+    const patientData = allPatientData[currentPatientInternalId];
+    const printableArea = dom.printableArea;
+    const chartContainer = printableArea.querySelector('.chart-container'); // 找到圖表容器
+    const canvas = dom.ioChartCanvas;
+
+    // 1. 產生報告標頭
+    const headerEl = document.createElement('div');
+    headerEl.className = 'pdf-header';
+    // ... (這段產生 header 的程式碼保持不變)
+    const records = patientData.records || [];
+    const chartData = processDataForChart(records);
+    const totalIntake = chartData.intakeData.reduce((sum, val) => sum + val, 0);
+    const avgIntake = totalIntake > 0 ? (totalIntake / 7).toFixed(0) : 0;
+    let tempSum = 0; let tempCount = 0;
+    const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    records.filter(r => new Date(r.time) >= sevenDaysAgo && r.bodyTemp).forEach(r => {
+        tempSum += parseFloat(r.bodyTemp);
+        tempCount++;
+    });
+    const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : '無紀錄';
+    headerEl.innerHTML = `<h2>${patientData.name} - 照護紀錄報告</h2><p>病床號/房號：${patientData.id || '未提供'}</p><p>報告產出日期：${new Date().toLocaleDateString('zh-TW')}</p><div class="pdf-header-summary"><p>近七日日均攝取水量：<strong>${avgIntake} ml</strong></p><p>近七日平均體溫：<strong>${avgTemp} °C</strong></p></div>`;
+    
+    // 2. 準備 PDF 匯出
+    printableArea.prepend(headerEl);
+
+    // 3. 【關鍵步驟】將 Canvas 轉為圖片
+    const chartImage = ioChartInstance.toBase64Image(); // 取得圖表的 Base64 圖片資料
+    const imgElement = document.createElement('img');
+    imgElement.src = chartImage;
+    imgElement.style.width = '100%'; // 讓圖片寬度與容器相同
+    imgElement.style.display = 'block';
+
+    canvas.style.display = 'none'; // 暫時隱藏 Canvas
+    chartContainer.appendChild(imgElement); // 將圖片插入容器
+
+    // 使用 setTimeout 等待圖片載入完成，確保圖片被渲染
+    setTimeout(() => {
+        const options = {
+            margin: 15,
+            filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
+            image: { type: 'jpeg', quality: 0.98 },
+            html2canvas: { scale: 2, useCORS: true },
+            jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        // 4. 執行 PDF 匯出
+        html2pdf().from(printableArea).set(options).save().then(() => {
+            // 5. 【關鍵步驟】匯出完成後，清理現場
+            headerEl.remove();
+            imgElement.remove(); // 移除我們暫時加入的圖片
+            canvas.style.display = 'block'; // 恢復顯示 Canvas
         });
-        const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : '無紀錄';
-        const headerEl = document.createElement('div');
-        headerEl.className = 'pdf-header';
-        headerEl.innerHTML = `<h2>${patientData.name} - 照護紀錄報告</h2><p>病床號/房號：${patientData.id || '未提供'}</p><p>報告產出日期：${new Date().toLocaleDateString('zh-TW')}</p><div class="pdf-header-summary"><p>近七日日均攝取水量：<strong>${avgIntake} ml</strong></p><p>近七日平均體溫：<strong>${avgTemp} °C</strong></p></div>`;
-        printableArea.prepend(headerEl);
-        renderChart(patientData, { animation: false });
-        setTimeout(() => {
-            const options = {
-                margin: 15, filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().from(printableArea).set(options).save().then(() => {
-                headerEl.remove();
-                renderChart(patientData);
-            });
-        }, 100);
-    }
+
+    }, 200); // 這裡給予一個稍長的延遲以確保圖片DOM被完全渲染
+}
     
     // --- UI RENDERING FUNCTIONS ---
     function populatePatientSelector() {
