@@ -285,27 +285,51 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.medicationsList.addEventListener('click', e => { if (e.target.matches('.med-delete-btn')) { const index = parseInt(e.target.dataset.medIndex, 10); currentRecordState.medications.splice(index, 1); renderMedicationsList(); } });
     dom.allStatefulInputs.forEach(input => { input.addEventListener('input', e => { const key = e.target.dataset.key; const value = e.target.value; if (key) { currentRecordState[key] = value; } }); });
     dom.recordForm.addEventListener('submit', e => {
-        e.preventDefault();
-        if (!currentPatientInternalId) return alert('請先選擇一位病人！');
-        const patientData = allPatientData[currentPatientInternalId];
-        const isStateEmpty = Object.values(currentRecordState).every(value => !value || (Array.isArray(value) && value.length === 0));
-        if (isStateEmpty) return alert('表單是空的，沒有可新增的紀錄。');
-        const mergeableRecord = findMergeableRecord(patientData);
-        let message = '';
-        if (mergeableRecord) {
-            mergeDataIntoRecord(mergeableRecord, currentRecordState);
-            message = '紀錄已成功合併！';
-        } else {
-            const newRecord = { ...currentRecordState, id: Date.now(), time: new Date().toISOString() };
-            patientData.records.push(newRecord);
-            message = '已新增紀錄！';
-        }
-        saveAllData();
-        renderTable(patientData);
-        renderChart(patientData);
-        clearFormAndState();
-        alert(message);
-    });
+    e.preventDefault();
+    if (!currentPatientInternalId) return alert('請先選擇一位病人！');
+    const patientData = allPatientData[currentPatientInternalId];
+    const isStateEmpty = Object.values(currentRecordState).every(value => !value || (Array.isArray(value) && value.length === 0));
+    if (isStateEmpty) return alert('表單是空的，沒有可新增的紀錄。');
+    
+    // ▼▼▼【新增的跳轉邏輯】▼▼▼
+    // 1. 先找出目前的表單是哪一個
+    const currentActiveButton = document.querySelector('.record-type-btn.active');
+    const currentFormType = currentActiveButton ? currentActiveButton.dataset.form : 'diet';
+    
+    // 2. 建立一個表單的順序列表
+    const formSequence = ['diet', 'output', 'med', 'other'];
+    
+    // 3. 計算出下一個表單的索引，如果到最後一個了，就繞回開頭
+    const currentIndex = formSequence.indexOf(currentFormType);
+    const nextIndex = (currentIndex + 1) % formSequence.length;
+    const nextFormType = formSequence[nextIndex];
+    // ▲▲▲【新增的跳轉邏輯結束】▲▲▲
+
+    const mergeableRecord = findMergeableRecord(patientData);
+    let message = '';
+    if (mergeableRecord) {
+        mergeDataIntoRecord(mergeableRecord, currentRecordState);
+        message = '紀錄已成功合併！';
+    } else {
+        const newRecord = { ...currentRecordState, id: Date.now(), time: new Date().toISOString() };
+        patientData.records.push(newRecord);
+        message = '已新增紀錄！';
+    }
+    saveAllData();
+    renderTable(patientData);
+    renderChart(patientData);
+    
+    // ▼▼▼【替換原有的 clearFormAndState()】▼▼▼
+    // 我們手動執行清理，並跳轉到計算好的下一個表單
+    initializeState();
+    dom.recordForm.reset();
+    renderMedicationsList();
+    renderDietTags();
+    setActiveForm(nextFormType); // 使用我們計算出的 nextFormType
+    // ▲▲▲【替換結束】▲▲▲
+
+    alert(message);
+});
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
     dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(patientData); renderChart(patientData); } } } });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
