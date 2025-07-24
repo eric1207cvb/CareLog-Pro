@@ -1,3 +1,14 @@
+/* --- 隱藏數字輸入框的預設上下箭頭 --- */
+/* 適用於 Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+/* 適用於 Firefox */
+input[type=number] {
+  -moz-appearance: textfield;
+}
 :root {
     --primary-color: #007bff;
     --success-color: #28a745;
@@ -375,9 +386,18 @@ textarea:focus {
     flex-grow: 1;
     padding: 8px;
     font-size: 14px;
-    background-color: var(--section-bg);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color)
+    font-weight: 500; /* 讓字體稍微加粗 */
+    background-color: var(--primary-color); /* 使用主題藍色 */
+    color: var(--text-on-primary); /* 使用白色文字 */
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius-sm); /* 加上圓角 */
+    cursor: pointer; /* 滑鼠移上時顯示點擊手勢 */
+    transition: opacity 0.2s ease; /* 加入平滑的過渡效果 */
+    text-align: center;
+}
+
+.btn-quick-add:hover {
+    opacity: 0.85; /* 滑鼠移上時稍微變淡，提供回饋 */
 }
 
 .records-section {
@@ -507,4 +527,46 @@ th {
     .delete-btn {
         font-size: 24px
     }
+}
+
+/* --- 自訂數字輸入框微調按鈕樣式 --- */
+.custom-number-input {
+    display: flex;
+    align-items: center;
+    width: 100%;
+}
+
+.custom-number-input input[type=number] {
+    text-align: center; /* 讓數字置中，看起來更專業 */
+    border-left: none;  /* 移除左右邊框，讓按鈕和輸入框融為一體 */
+    border-right: none;
+    border-radius: 0; /* 移除圓角 */
+}
+
+.stepper-btn {
+    width: 45px;
+    height: 48px; /* 高度和輸入框差不多 */
+    font-size: 20px;
+    font-weight: 500;
+    background-color: var(--section-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    line-height: 48px; /* 垂直置中 */
+    padding: 0;
+}
+
+.stepper-btn:hover {
+    background-color: #d3d9df;
+}
+
+.stepper-down {
+    border-top-left-radius: var(--border-radius-sm);
+    border-bottom-left-radius: var(--border-radius-sm);
+}
+
+.stepper-up {
+    border-top-right-radius: var(--border-radius-sm);
+    border-bottom-right-radius: var(--border-radius-sm);
 }

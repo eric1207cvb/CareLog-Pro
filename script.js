@@ -3,7 +3,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const MERGE_WINDOW_MINUTES = 10;
     const DIET_OPTIONS = ["水", "牛奶", "豆漿", "果汁", "茶", "安素", "完膳", "補體素", "早餐", "午餐", "晚餐", "點心", "白飯", "稀飯", "麵食", "水果", "蔬菜", "魚肉", "雞肉", "豬肉", "餅乾"];
     const MED_ROUTES = ['口服', '針劑', '塗抹', '吸入', '外用', '其他'];
-    let allPatientData = JSON.parse(localStorage.getItem('carelog-all-patients')) || {};
+    
+    let allPatientData;
+    try {
+        const storedData = localStorage.getItem('carelog-all-patients');
+        allPatientData = storedData ? JSON.parse(storedData) : {};
+    } catch (error) {
+        console.error("讀取 localStorage 資料失敗:", error);
+        alert("讀取先前資料時發生錯誤，將以全新狀態開始。");
+        allPatientData = {};
+    }
+
     let currentPatientInternalId = null;
     let currentRecordState = {};
     let ioChartInstance = null;
@@ -36,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // --- Data Migration Functions ---
+    // 這部分若你沒有用到可以忽略或移除
     function migrateOldData(){/*...*/}
     function migrateMedicationData(){/*...*/}
     function migrateCorruptedDietContent(){/*...*/}
@@ -285,54 +296,90 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.medicationsList.addEventListener('click', e => { if (e.target.matches('.med-delete-btn')) { const index = parseInt(e.target.dataset.medIndex, 10); currentRecordState.medications.splice(index, 1); renderMedicationsList(); } });
     dom.allStatefulInputs.forEach(input => { input.addEventListener('input', e => { const key = e.target.dataset.key; const value = e.target.value; if (key) { currentRecordState[key] = value; } }); });
     dom.recordForm.addEventListener('submit', e => {
-    e.preventDefault();
-    if (!currentPatientInternalId) return alert('請先選擇一位病人！');
-    const patientData = allPatientData[currentPatientInternalId];
-    const isStateEmpty = Object.values(currentRecordState).every(value => !value || (Array.isArray(value) && value.length === 0));
-    if (isStateEmpty) return alert('表單是空的，沒有可新增的紀錄。');
-    
-    // ▼▼▼【新增的跳轉邏輯】▼▼▼
-    // 1. 先找出目前的表單是哪一個
-    const currentActiveButton = document.querySelector('.record-type-btn.active');
-    const currentFormType = currentActiveButton ? currentActiveButton.dataset.form : 'diet';
-    
-    // 2. 建立一個表單的順序列表
-    const formSequence = ['diet', 'output', 'med', 'other'];
-    
-    // 3. 計算出下一個表單的索引，如果到最後一個了，就繞回開頭
-    const currentIndex = formSequence.indexOf(currentFormType);
-    const nextIndex = (currentIndex + 1) % formSequence.length;
-    const nextFormType = formSequence[nextIndex];
-    // ▲▲▲【新增的跳轉邏輯結束】▲▲▲
+        e.preventDefault();
+        if (!currentPatientInternalId) return alert('請先選擇一位病人！');
+        const patientData = allPatientData[currentPatientInternalId];
+        const isStateEmpty = Object.values(currentRecordState).every(value => !value || (Array.isArray(value) && value.length === 0));
+        if (isStateEmpty) return alert('表單是空的，沒有可新增的紀錄。');
+        
+        const currentActiveButton = document.querySelector('.record-type-btn.active');
+        const currentFormType = currentActiveButton ? currentActiveButton.dataset.form : 'diet';
+        const formSequence = ['diet', 'output', 'med', 'other'];
+        const currentIndex = formSequence.indexOf(currentFormType);
+        const nextIndex = (currentIndex + 1) % formSequence.length;
+        const nextFormType = formSequence[nextIndex];
 
-    const mergeableRecord = findMergeableRecord(patientData);
-    let message = '';
-    if (mergeableRecord) {
-        mergeDataIntoRecord(mergeableRecord, currentRecordState);
-        message = '紀錄已成功合併！';
-    } else {
-        const newRecord = { ...currentRecordState, id: Date.now(), time: new Date().toISOString() };
-        patientData.records.push(newRecord);
-        message = '已新增紀錄！';
-    }
-    saveAllData();
-    renderTable(patientData);
-    renderChart(patientData);
-    
-    // ▼▼▼【替換原有的 clearFormAndState()】▼▼▼
-    // 我們手動執行清理，並跳轉到計算好的下一個表單
-    initializeState();
-    dom.recordForm.reset();
-    renderMedicationsList();
-    renderDietTags();
-    setActiveForm(nextFormType); // 使用我們計算出的 nextFormType
-    // ▲▲▲【替換結束】▲▲▲
+        const mergeableRecord = findMergeableRecord(patientData);
+        let message = '';
+        if (mergeableRecord) {
+            mergeDataIntoRecord(mergeableRecord, currentRecordState);
+            message = '紀錄已成功合併！';
+        } else {
+            const newRecord = { ...currentRecordState, id: Date.now(), time: new Date().toISOString() };
+            patientData.records.push(newRecord);
+            message = '已新增紀錄！';
+        }
+        saveAllData();
+        renderTable(patientData);
+        renderChart(patientData);
+        
+        initializeState();
+        dom.recordForm.reset();
+        renderMedicationsList();
+        renderDietTags();
+        setActiveForm(nextFormType);
 
-    alert(message);
-});
+        alert(message);
+    });
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
-    dom.recordsTableBody.addEventListener('click', e => { const deleteButton = e.target.closest('.delete-btn'); if (deleteButton) { const idToDelete = parseInt(deleteButton.dataset.id, 10); const patientData = allPatientData[currentPatientInternalId]; if (patientData && confirm(`您確定要永久刪除病患 「${patientData.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { const recordIndex = patientData.records.findIndex(r => r.id === idToDelete); if (recordIndex > -1) { patientData.records.splice(recordIndex, 1); saveAllData(); renderTable(patientData); renderChart(patientData); } } } });
+    dom.recordsTableBody.addEventListener('click', e => {
+        const deleteButton = e.target.closest('.delete-btn');
+        if (deleteButton) {
+            const idToDelete = parseInt(deleteButton.dataset.id, 10);
+            const patientData = allPatientData[currentPatientInternalId];
+            if (patientData) {
+                const recordToDelete = patientData.records.find(r => r.id === idToDelete);
+                const recordTime = recordToDelete ? new Date(recordToDelete.time).toLocaleString('zh-TW') : '該筆';
+
+                if (confirm(`您確定要刪除這筆於「${recordTime}」的紀錄嗎？`)) {
+                    const recordIndex = patientData.records.findIndex(r => r.id === idToDelete);
+                    if (recordIndex > -1) {
+                        patientData.records.splice(recordIndex, 1);
+                        saveAllData();
+                        renderTable(patientData);
+                        renderChart(patientData);
+                    }
+                }
+            }
+        }
+    });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
+    
+    // --- 自訂數字輸入框微調按鈕的事件處理 (升級版，支援小數) ---
+    document.body.addEventListener('click', e => {
+        if (e.target.matches('.stepper-btn')) {
+            const button = e.target;
+            const targetInput = document.getElementById(button.dataset.targetInput);
+            if (targetInput) {
+                let currentValue = parseFloat(targetInput.value) || 0;
+                const baseStep = parseFloat(targetInput.step) || 1;
+                const step = e.shiftKey ? (baseStep * 10) : baseStep;
+
+                if (button.classList.contains('stepper-up')) {
+                    currentValue += step;
+                } else if (button.classList.contains('stepper-down')) {
+                    const min = parseFloat(targetInput.min) || 0;
+                    currentValue = Math.max(min, currentValue - step);
+                }
+                
+                const decimalPlaces = baseStep.toString().split('.')[1]?.length || 0;
+                targetInput.value = currentValue.toFixed(decimalPlaces);
+                
+                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+        }
+    });
+
     dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; const confirmation = confirm(`您確定要永久刪除病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`); if (confirmation) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); alert(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
     dom.exportPdfBtn.addEventListener('click', exportPatientDataAsPDF);
     
