@@ -9,6 +9,10 @@ input[type=number]::-webkit-inner-spin-button {
 input[type=number] {
   -moz-appearance: textfield;
 }
+
+/* =================================
+   1. Global Variables & Base Styles
+   ================================= */
 :root {
     --primary-color: #007bff;
     --success-color: #28a745;
@@ -38,6 +42,10 @@ body {
     padding: 20px
 }
 
+/* =================================
+   2. Layout & Components
+   ================================= */
+
 .container {
     max-width: 1200px;
     margin: auto;
@@ -53,6 +61,14 @@ header h1 {
     margin-bottom: 25px;
     font-weight: 700
 }
+
+.main-content-wrapper {
+    display: block; /* 手機上預設為區塊堆疊 */
+}
+
+/* =================================
+   3. Buttons & Form Elements
+   ================================= */
 
 input,
 select,
@@ -102,25 +118,75 @@ textarea:focus {
     opacity: .9
 }
 
-.btn-primary {
-    background-color: var(--primary-color)
+.btn-primary { background-color: var(--primary-color) }
+.btn-success { background-color: var(--success-color) }
+.btn-secondary { background-color: var(--secondary-color) }
+.btn-danger { background-color: var(--danger-color) }
+.btn-info { background-color: var(--info-color) }
+
+/* --- Quick Add 按鈕 --- */
+.btn-quick-add {
+    flex-grow: 1;
+    padding: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: var(--primary-color);
+    color: var(--text-on-primary);
+    border: 1px solid var(--primary-color);
+    border-radius: var(--border-radius-sm);
+    cursor: pointer;
+    transition: opacity 0.2s ease;
+    text-align: center;
+}
+.btn-quick-add:hover {
+    opacity: 0.85;
 }
 
-.btn-success {
-    background-color: var(--success-color)
+/* --- 自訂數字輸入框微調按鈕樣式 --- */
+.custom-number-input {
+    display: flex;
+    align-items: center;
+    width: 100%;
 }
 
-.btn-secondary {
-    background-color: var(--secondary-color)
+.custom-number-input input[type=number] {
+    text-align: center;
+    border-left: none;
+    border-right: none;
+    border-radius: 0;
 }
 
-.btn-danger {
-    background-color: var(--danger-color)
+.stepper-btn {
+    width: 45px;
+    height: 48px; 
+    font-size: 20px;
+    font-weight: 500;
+    background-color: var(--section-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    line-height: 48px;
+    padding: 0;
 }
 
-.btn-info {
-    background-color: var(--info-color)
+.stepper-btn:hover {
+    background-color: #d3d9df;
 }
+
+.stepper-down {
+    border-top-left-radius: var(--border-radius-sm);
+    border-bottom-left-radius: var(--border-radius-sm);
+}
+
+.stepper-up {
+    border-top-right-radius: var(--border-radius-sm);
+    border-bottom-right-radius: var(--border-radius-sm);
+}
+
+/* =================================
+   4. Specific Sections
+   ================================= */
 
 .patient-management {
     background-color: var(--section-bg);
@@ -143,12 +209,6 @@ textarea:focus {
 
 #patientSelector {
     flex-grow: 1;
-    font-size: 18px;
-    padding: 14px
-}
-
-#newPatientBtn {
-    padding: 14px 20px
 }
 
 #patientForm {
@@ -162,10 +222,7 @@ textarea:focus {
     gap: 10px
 }
 
-#patientForm.hidden,
-.main-content-wrapper.hidden {
-    display: none
-}
+#patientForm.hidden, .main-content-wrapper.hidden { display: none }
 
 .patient-form-actions {
     grid-column: 1 / -1;
@@ -174,9 +231,7 @@ textarea:focus {
     margin-top: 5px
 }
 
-#savePatientBtn {
-    flex-grow: 1
-}
+#savePatientBtn { flex-grow: 1 }
 
 #recordForm h2 {
     color: var(--text-secondary);
@@ -233,143 +288,99 @@ textarea:focus {
     align-items: start
 }
 
-.form-section.active {
-    display: grid
+.form-section.active { display: grid }
+#med-fields.form-section.active { display: block }
+
+.diet-input-wrapper,
+.medication-entry,
+#other-fields.form-section {
+    grid-column: 1 / -1;
 }
 
-#med-fields.form-section.active {
-    display: block
-}
-
-.multi-select-container {
-    grid-column: 1 / -1
-}
-
-.multi-select-container label {
+/* --- 新版飲食區塊樣式 --- */
+.diet-input-wrapper > label {
     display: block;
-    font-size: 14px;
-    color: var(--secondary-color);
     margin-bottom: 8px;
-    font-weight: 500
+    font-weight: 500;
+    color: var(--text-secondary);
 }
-
+.diet-input-wrapper > label:not(:first-child) {
+    margin-top: 16px;
+}
 .tags-container {
     display: flex;
     flex-wrap: wrap;
     gap: 8px;
-    margin-bottom: 10px;
     padding: 8px;
-    /* border: 1px solid var(--border-color); */ /* <<< 修改處：我們把框線註解掉 */
     border-radius: var(--border-radius-sm);
     min-height: 40px;
-    background-color: #fff;
+    background-color: var(--section-bg);
 }
-
-.tag {
+.diet-options-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+.diet-option-btn {
+    padding: 8px 14px;
+    font-size: 14px;
+    background-color: var(--body-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.diet-option-btn.is-selected {
     background-color: var(--primary-color);
     color: var(--text-on-primary);
-    padding: 5px 12px;
-    border-radius: 16px;
-    font-size: 14px;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px
+    border-color: var(--primary-color);
+}
+.custom-diet-input-wrapper {
+    display: flex;
+    gap: 10px;
+}
+#addCustomDietBtn {
+    flex-shrink: 0; /* 防止按鈕被壓縮 */
+    padding: 12px 18px;
 }
 
+/* --- 強化標籤樣式 --- */
+.tag {
+    background-color: var(--success-color); /* 改為成功色，與選項區分 */
+    color: var(--text-on-primary);
+    padding: 6px 14px;
+    border-radius: 18px;
+    font-size: 15px;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: transform 0.1s;
+}
+.tag:hover {
+    transform: translateY(-1px);
+}
 .tag-remove-btn {
-    background: rgba(255, 255, 255, .3);
+    background: rgba(255, 255, 255, .2);
     color: #fff;
     border: none;
     border-radius: 50%;
-    width: 18px;
-    height: 18px;
-    font-size: 12px;
-    line-height: 18px;
+    width: 20px;
+    height: 20px;
+    font-size: 14px;
+    font-weight: bold;
+    line-height: 20px;
     text-align: center;
-    cursor: pointer
+    cursor: pointer;
+    transition: background-color 0.2s;
 }
-
-.input-with-suggestions {
-    position: relative
-}
-
-.suggestions-list {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background-color: var(--container-bg);
-    border: 1px solid var(--border-color);
-    border-top: none;
-    border-radius: 0 0 var(--border-radius-sm) var(--border-radius-sm);
-    max-height: 200px;
-    overflow-y: auto;
-    z-index: 10
-}
-
-.suggestions-list.hidden {
-    display: none
-}
-
-.suggestion-item {
-    padding: 10px 12px;
-    cursor: pointer
-}
-
-.suggestion-item:hover {
-    background-color: var(--section-bg)
-}
-
-.suggestion-item.active {
-    background-color: var(--primary-color);
-    color: var(--text-on-primary)
-}
-
-#medications-list {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    width: 100%
-}
-
-.medication-entry {
-    display: grid;
-    grid-template-columns: minmax(100px, 1fr) auto minmax(100px, 1fr) auto;
-    gap: 10px;
-    align-items: center
-}
-
-.med-delete-btn {
-    background-color: var(--danger-color);
+.tag-remove-btn:hover {
+    background-color: rgba(255, 255, 255, .4);
     color: #fff;
-    border-radius: 50%;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    line-height: 30px;
-    text-align: center;
-    flex-shrink: 0
 }
 
-#addMedicationBtn {
-    margin-top: 15px;
-    width: auto
-}
-
-.form-actions {
-    display: flex;
-    gap: 15px;
-    margin-top: 20px
-}
-
-#clearFormBtn {
-    flex-basis: 150px
-}
-
-#addLogBtn {
-    flex-grow: 1;
-    font-size: 18px
-}
 
 .input-group {
     display: flex;
@@ -380,32 +391,6 @@ textarea:focus {
 .quick-add-buttons {
     display: flex;
     gap: 8px
-}
-
-.btn-quick-add {
-    flex-grow: 1;
-    padding: 8px;
-    font-size: 14px;
-    font-weight: 500; /* 讓字體稍微加粗 */
-    background-color: var(--primary-color); /* 使用主題藍色 */
-    color: var(--text-on-primary); /* 使用白色文字 */
-    border: 1px solid var(--primary-color);
-    border-radius: var(--border-radius-sm); /* 加上圓角 */
-    cursor: pointer; /* 滑鼠移上時顯示點擊手勢 */
-    transition: opacity 0.2s ease; /* 加入平滑的過渡效果 */
-    text-align: center;
-}
-
-.btn-quick-add:hover {
-    opacity: 0.85; /* 滑鼠移上時稍微變淡，提供回饋 */
-}
-
-.records-section {
-    margin-top: 40px
-}
-
-.records-section h2 {
-    margin-bottom: 20px
 }
 
 .table-wrapper {
@@ -419,8 +404,7 @@ table {
     font-size: 15px
 }
 
-th,
-td {
+th, td {
     padding: 12px;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
@@ -432,30 +416,6 @@ th {
     white-space: nowrap
 }
 
-.delete-btn {
-    background: 0 0;
-    color: var(--secondary-color);
-    font-size: 20px;
-    border: none;
-    cursor: pointer;
-    padding: 0
-}
-
-.delete-btn:hover {
-    color: var(--danger-color)
-}
-
-.right-panel {
-    display: flex;
-    flex-direction: column;
-    gap: 30px
-}
-
-.chart-section h2 {
-    color: var(--text-secondary);
-    margin-bottom: 20px
-}
-
 .chart-container {
     padding: 20px;
     background-color: var(--container-bg);
@@ -463,110 +423,43 @@ th {
     border-radius: var(--border-radius-md)
 }
 
-.pdf-header {
-    padding: 20px;
-    margin-bottom: 20px;
-    background-color: var(--section-bg);
-    border-radius: var(--border-radius-md);
-    border: 1px solid var(--border-color)
-}
+/* =================================
+   5. Responsive Design
+   ================================= */
 
-.pdf-header h2 {
-    margin: 0 0 15px;
-    color: var(--text-primary)
-}
-
-.pdf-header p {
-    margin: 5px 0;
-    font-size: 16px;
-    color: var(--text-secondary)
-}
-
-.pdf-header-summary {
-    margin-top: 15px;
-    padding-top: 15px;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    gap: 20px
-}
-
-.pdf-header-summary strong {
-    font-weight: 700;
-    color: var(--primary-color)
-}
-
+/* 平板尺寸及以上 (例如 iPad 直向) */
 @media (min-width: 768px) {
     .main-content-wrapper {
         display: grid;
-        grid-template-columns: 450px 1fr;
-        gap: 30px;
-        align-items: flex-start
+        grid-template-columns: 380px 1fr;
+        gap: 24px;
+        align-items: flex-start;
     }
     .form-wrapper {
         position: sticky;
-        top: 20px
+        top: 20px;
+    }
+}
+
+/* 大型平板橫向與桌機尺寸 */
+@media (min-width: 1024px) {
+    .main-content-wrapper {
+        grid-template-columns: 450px 1fr;
+        gap: 30px;
     }
     .btn {
         padding: 15px 22px;
-        font-size: 18px
+        font-size: 16px;
     }
     input,
     select,
     textarea {
-        padding: 15px;
-        font-size: 18px
-    }
-    #patientSelector {
-        padding: 16px
+        padding: 14px;
+        font-size: 16px;
     }
     th,
     td {
         padding: 16px;
-        font-size: 16px
+        font-size: 16px;
     }
-    .delete-btn {
-        font-size: 24px
-    }
-}
-
-/* --- 自訂數字輸入框微調按鈕樣式 --- */
-.custom-number-input {
-    display: flex;
-    align-items: center;
-    width: 100%;
-}
-
-.custom-number-input input[type=number] {
-    text-align: center; /* 讓數字置中，看起來更專業 */
-    border-left: none;  /* 移除左右邊框，讓按鈕和輸入框融為一體 */
-    border-right: none;
-    border-radius: 0; /* 移除圓角 */
-}
-
-.stepper-btn {
-    width: 45px;
-    height: 48px; /* 高度和輸入框差不多 */
-    font-size: 20px;
-    font-weight: 500;
-    background-color: var(--section-bg);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: background-color 0.2s;
-    line-height: 48px; /* 垂直置中 */
-    padding: 0;
-}
-
-.stepper-btn:hover {
-    background-color: #d3d9df;
-}
-
-.stepper-down {
-    border-top-left-radius: var(--border-radius-sm);
-    border-bottom-left-radius: var(--border-radius-sm);
-}
-
-.stepper-up {
-    border-top-right-radius: var(--border-radius-sm);
-    border-bottom-right-radius: var(--border-radius-sm);
 }

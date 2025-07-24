@@ -39,14 +39,14 @@ document.addEventListener('DOMContentLoaded', () => {
         recordsTableBody: document.querySelector('#recordsTable tbody'),
         medicationsList: document.getElementById('medications-list'),
         addMedicationBtn: document.getElementById('addMedicationBtn'),
-        dietContentInput: document.getElementById('dietContentInput'),
         dietTagsContainer: document.getElementById('diet-tags-container'),
-        dietSuggestions: document.getElementById('diet-suggestions'),
+        dietOptionsGrid: document.getElementById('diet-options-grid'),
+        customDietInput: document.getElementById('customDietInput'),
+        addCustomDietBtn: document.getElementById('addCustomDietBtn'),
         ioChartCanvas: document.getElementById('ioChart'),
     };
 
     // --- Data Migration Functions ---
-    // 這部分若你沒有用到可以忽略或移除
     function migrateOldData(){/*...*/}
     function migrateMedicationData(){/*...*/}
     function migrateCorruptedDietContent(){/*...*/}
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (newValue > 0) targetRecord[key] = oldValue + newValue;
         });
         ['dietNotes', 'bowelMovement', 'specialObservation', 'bodyTemp'].forEach(key => {
-            if (newData[key] && newData[key].trim() !== '') {
+            if (newData[key] && String(newData[key]).trim() !== '') {
                 targetRecord[key] = newData[key];
             }
         });
@@ -209,37 +209,49 @@ document.addEventListener('DOMContentLoaded', () => {
         initializeState();
         dom.recordForm.reset();
         renderMedicationsList();
-        renderDietTags();
-        setActiveForm('diet');
+        updateDietSelectionUI(); // 使用新的飲食UI更新函式
     }
-    function renderDietTags() {
+
+    // --- NEW DIET UI FUNCTIONS ---
+    function renderDietOptionsGrid() {
+        dom.dietOptionsGrid.innerHTML = '';
+        DIET_OPTIONS.forEach(option => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'diet-option-btn';
+            button.textContent = option;
+            button.dataset.diet = option;
+            dom.dietOptionsGrid.appendChild(button);
+        });
+    }
+
+    function updateDietSelectionUI() {
+        const selectedItems = currentRecordState.dietContent || [];
+        // 更新上方標籤
         dom.dietTagsContainer.innerHTML = "";
-        (currentRecordState.dietContent || []).forEach((item, index) => {
-            const tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = item;
-            const removeBtn = document.createElement('button'); removeBtn.type = 'button'; removeBtn.className = 'tag-remove-btn'; removeBtn.textContent = '×'; removeBtn.dataset.index = index;
+        selectedItems.forEach(item => {
+            const tag = document.createElement('span');
+            tag.className = 'tag';
+            tag.textContent = item;
+            const removeBtn = document.createElement('button');
+            removeBtn.type = 'button';
+            removeBtn.className = 'tag-remove-btn';
+            removeBtn.textContent = '×';
+            removeBtn.dataset.diet = item; // 用於點擊移除
             tag.appendChild(removeBtn);
             dom.dietTagsContainer.appendChild(tag);
         });
+        // 更新下方按鈕樣式
+        document.querySelectorAll('.diet-option-btn').forEach(btn => {
+            if (selectedItems.includes(btn.dataset.diet)) {
+                btn.classList.add('is-selected');
+            } else {
+                btn.classList.remove('is-selected');
+            }
+        });
     }
-    function renderDietSuggestions(query) {
-        dom.dietSuggestions.innerHTML = '';
-        if (!query) { dom.dietSuggestions.classList.add('hidden'); return; }
-        const filteredOptions = DIET_OPTIONS.filter(option => option.toLowerCase().includes(query.toLowerCase()) && !(currentRecordState.dietContent || []).includes(option));
-        if (filteredOptions.length > 0) {
-            filteredOptions.forEach(option => {
-                const item = document.createElement('div'); item.className = 'suggestion-item'; item.textContent = option;
-                item.addEventListener('mousedown', e => {
-                    e.preventDefault();
-                    if ((currentRecordState.dietContent || []).length < 5) {
-                        currentRecordState.dietContent.push(option);
-                        renderDietTags(); dom.dietContentInput.value = ''; dom.dietSuggestions.classList.add('hidden');
-                    } else { alert('最多只能選擇五項飲食內容。'); }
-                });
-                dom.dietSuggestions.appendChild(item);
-            });
-            dom.dietSuggestions.classList.remove('hidden');
-        } else { dom.dietSuggestions.classList.add('hidden'); }
-    }
+    // --- END NEW DIET UI FUNCTIONS ---
+
     function renderMedicationsList() {
         dom.medicationsList.innerHTML = "";
         if (!currentRecordState.medications || currentRecordState.medications.length === 0) return;
@@ -285,11 +297,67 @@ document.addEventListener('DOMContentLoaded', () => {
     dom.patientForm.addEventListener('submit', e => { e.preventDefault(); const name = dom.patientNameInput.value.trim(); if (!name) { alert('病人姓名為必填欄位！'); return; } const internalId = `patient_${Date.now()}`; allPatientData[internalId] = { internalId, name: name, id: dom.patientIdInput.value.trim(), records: [] }; saveAllData(); populatePatientSelector(); dom.patientSelector.value = internalId; selectPatient(internalId); dom.patientForm.reset(); });
     dom.patientSelector.addEventListener('change', () => selectPatient(dom.patientSelector.value));
     dom.recordTypeSelector.addEventListener('click', e => { const button = e.target.closest('.record-type-btn'); if (button) setActiveForm(button.dataset.form); });
-    dom.dietContentInput.addEventListener('input', () => renderDietSuggestions(dom.dietContentInput.value));
-    dom.dietContentInput.addEventListener('focus', () => renderDietSuggestions(dom.dietContentInput.value));
-    dom.dietContentInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); const customItem = dom.dietContentInput.value.trim(); if (customItem && (currentRecordState.dietContent || []).length < 5) { if (!(currentRecordState.dietContent || []).includes(customItem)) currentRecordState.dietContent.push(customItem); renderDietTags(); dom.dietContentInput.value = ''; dom.dietSuggestions.classList.add('hidden'); } else if ((currentRecordState.dietContent || []).length >= 5) { alert('最多只能新增五項飲食內容。'); } } });
-    document.addEventListener('click', e => { if (dom.dietContentInput && !dom.dietContentInput.contains(e.target)) { dom.dietSuggestions.classList.add('hidden'); } });
-    dom.dietTagsContainer.addEventListener('click', e => { if (e.target.matches('.tag-remove-btn')) { const index = parseInt(e.target.dataset.index, 10); currentRecordState.dietContent.splice(index, 1); renderDietTags(); } });
+    
+    // --- New Diet Event Listeners ---
+    function handleAddCustomDiet() {
+        const customItem = dom.customDietInput.value.trim();
+        if (!customItem) return;
+        
+        const dietContent = currentRecordState.dietContent || [];
+        if (dietContent.length >= 5) {
+            alert('最多只能新增五項飲食內容。');
+            return;
+        }
+        if (!dietContent.includes(customItem)) {
+            dietContent.push(customItem);
+            currentRecordState.dietContent = dietContent;
+            updateDietSelectionUI();
+        }
+        dom.customDietInput.value = '';
+    }
+    dom.addCustomDietBtn.addEventListener('click', handleAddCustomDiet);
+    dom.customDietInput.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+            e.preventDefault();
+            handleAddCustomDiet();
+        }
+    });
+
+    dom.dietOptionsGrid.addEventListener('click', e => {
+        const target = e.target;
+        if (target.matches('.diet-option-btn')) {
+            const item = target.dataset.diet;
+            const dietContent = currentRecordState.dietContent || [];
+            const itemIndex = dietContent.indexOf(item);
+            
+            if (itemIndex > -1) { // 如果已存在，則移除
+                dietContent.splice(itemIndex, 1);
+            } else { // 如果不存在，則加入
+                if (dietContent.length >= 5) {
+                    alert('最多只能選擇五項飲食內容。');
+                    return;
+                }
+                dietContent.push(item);
+            }
+            currentRecordState.dietContent = dietContent;
+            updateDietSelectionUI();
+        }
+    });
+    dom.dietTagsContainer.addEventListener('click', e => {
+        const target = e.target;
+        if (target.matches('.tag-remove-btn')) {
+            const item = target.dataset.diet;
+            const dietContent = currentRecordState.dietContent || [];
+            const itemIndex = dietContent.indexOf(item);
+            if(itemIndex > -1) {
+                dietContent.splice(itemIndex, 1);
+                currentRecordState.dietContent = dietContent;
+                updateDietSelectionUI();
+            }
+        }
+    });
+
+    // --- Other Event Listeners ---
     dom.addMedicationBtn.addEventListener('click', () => { if (!currentRecordState.medications) currentRecordState.medications = []; currentRecordState.medications.push({ name: '', route: '口服', dosage: '' }); renderMedicationsList(); });
     dom.medicationsList.addEventListener('input', e => { if (e.target.matches('[data-med-index]')) { const index = parseInt(e.target.dataset.medIndex, 10); const key = e.target.dataset.medKey; currentRecordState.medications[index][key] = e.target.value; } });
     dom.medicationsList.addEventListener('change', e => { if (e.target.matches('select[data-med-index]')) { const index = parseInt(e.target.dataset.medIndex, 10); const key = e.target.dataset.medKey; currentRecordState.medications[index][key] = e.target.value; } });
@@ -323,15 +391,12 @@ document.addEventListener('DOMContentLoaded', () => {
         renderTable(patientData);
         renderChart(patientData);
         
-        initializeState();
-        dom.recordForm.reset();
-        renderMedicationsList();
-        renderDietTags();
+        clearFormAndState();
         setActiveForm(nextFormType);
 
         alert(message);
     });
-    dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); } });
+    dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); setActiveForm('diet'); } });
     dom.recordsTableBody.addEventListener('click', e => {
         const deleteButton = e.target.closest('.delete-btn');
         if (deleteButton) {
@@ -355,7 +420,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     dom.formContent.addEventListener('click', e => { if (e.target.matches('.btn-quick-add')) { const button = e.target; const targetInputId = button.dataset.targetInput; const amountToAdd = parseInt(button.dataset.amount, 10); const targetInput = document.getElementById(targetInputId); if (targetInput && !isNaN(amountToAdd)) { targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd; targetInput.dispatchEvent(new Event('input')); } } });
     
-    // --- 自訂數字輸入框微調按鈕的事件處理 (升級版，支援小數) ---
     document.body.addEventListener('click', e => {
         if (e.target.matches('.stepper-btn')) {
             const button = e.target;
@@ -389,6 +453,8 @@ document.addEventListener('DOMContentLoaded', () => {
     migrateCorruptedDietContent();
     initializeState();
     populatePatientSelector();
+    renderDietOptionsGrid(); // 初始化時就產生飲食選項按鈕
     setActiveForm('diet');
+
     updatePatientActionButtonsState();
 });

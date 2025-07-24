@@ -42,12 +42,15 @@
                     </div>
                     <div class="form-content">
                         <div id="diet-fields" class="form-section active">
-                            <div class="multi-select-container">
-                                <label for="dietContentInput">飲食內容 (最多5項，可按Enter新增自訂項目)</label>
+                            <div class="diet-input-wrapper">
+                                <label>飲食內容 (最多5項)</label>
                                 <div id="diet-tags-container" class="tags-container"></div>
-                                <div class="input-with-suggestions">
-                                    <input type="text" id="dietContentInput" placeholder="在此輸入並搜尋或按Enter新增...">
-                                    <div id="diet-suggestions" class="suggestions-list hidden"></div>
+                                <label>常用項目 (點擊選擇)</label>
+                                <div id="diet-options-grid" class="diet-options-grid"></div>
+                                <label for="customDietInput">新增自訂項目</label>
+                                <div class="custom-diet-input-wrapper">
+                                    <input type="text" id="customDietInput" placeholder="輸入後按新增">
+                                    <button type="button" id="addCustomDietBtn" class="btn btn-secondary">新增</button>
                                 </div>
                             </div>
                             <input type="text" class="stateful-input" data-key="dietNotes" placeholder="附註描述 (例如: 半碗、8分滿)">
