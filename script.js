@@ -78,7 +78,8 @@ document.addEventListener('DOMContentLoaded', () => {
         ['waterAmount', 'urineOutput', 'bodyTemp', 'pulse', 'respiration', 'bpSystolic', 'bpDiastolic', 'drainage'].forEach(key => {
             const newValue = parseFloat(newData[key]);
             if (!isNaN(newValue)) {
-                if (key === 'bodyTemp' && newValue > 0) { targetRecord[key] = newValue;
+                if (key === 'bodyTemp' && newValue > 0) {
+                    targetRecord[key] = parseFloat(newValue.toFixed(1));
                 } else if (key !== 'bodyTemp') {
                     const oldValue = parseFloat(targetRecord[key]) || 0;
                     targetRecord[key] = oldValue + newValue;
@@ -217,15 +218,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
                 break;
             case 'pulse':
-                options.plugins.annotation.annotations.normalPulseRange = {
-                    type: 'box',
-                    yMin: NORMAL_RANGES.pulse.min,
-                    yMax: NORMAL_RANGES.pulse.max,
-                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
-                    borderColor: 'rgba(0, 123, 255, 0.2)',
-                    borderWidth: 1,
-                    label: { content: NORMAL_RANGES.pulse.label, display: true, position: 'start', color: 'rgba(0, 123, 255, 0.5)' }
-                };
+                options.scales.y.min = 40;
+                options.scales.y.max = 160;
                 break;
             case 'bp':
                 options.scales.y.min = 50;
@@ -640,6 +634,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 targetInput.dispatchEvent(new Event('input', { bubbles: true }));
                 triggerHapticFeedback();
             }
+            return;
         }
         
         const stepperBtn = e.target.closest('.stepper-btn');

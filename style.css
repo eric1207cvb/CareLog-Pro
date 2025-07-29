@@ -216,11 +216,18 @@ textarea:focus {
 }
 
 #patientSearchInput {
-    flex: 1 1 200px;
+    /* 彈性增長(1)，彈性收縮(1)，基礎寬度 150px */
+    flex: 1 1 150px;
 }
 
 #patientSelector {
-    flex: 2 1 300px;
+    /* 增長權重(2)比搜尋框大，彈性收縮(1)，基礎寬度 200px */
+    flex: 2 1 200px;
+}
+
+.patient-selector-wrapper .btn {
+    /* 讓按鈕們自動增長以填滿剩餘空間或下一行 */
+    flex: 1 1 auto;
 }
 
 #patientForm {
@@ -249,7 +256,10 @@ textarea:focus {
     color: var(--text-secondary);
     border-bottom: 2px solid var(--section-bg);
     padding-bottom: 8px;
-    margin: 0 0 20px
+    margin: 0 0 20px;
+    /* [新增] 調整字體大小與粗細 */
+    font-size: 1rem; /* 1rem 大約等於 16px */
+    font-weight: 500; /* 字體不要那麼粗 */
 }
 
 .record-type-selector,
@@ -454,16 +464,14 @@ th {
     min-height: 350px;
 }
 
-@media (max-width: 600px) {
-    .patient-selector-wrapper {
-        flex-direction: column;
-    }
-}
+/* =================================
+   5. Responsive Design
+   ================================= */
 
-@media (min-width: 768px) {
+@media (min-width: 769px) {
     .main-content-wrapper {
         display: grid;
-        grid-template-columns: 380px 1fr;
+        grid-template-columns: 420px 1fr;
         gap: 24px;
         align-items: flex-start;
     }
@@ -473,27 +481,9 @@ th {
     }
 }
 
-@media (min-width: 1024px) {
-    .main-content-wrapper {
-        grid-template-columns: 450px 1fr;
-        gap: 30px;
-    }
-    .btn {
-        padding: 15px 22px;
-        font-size: 16px;
-    }
-    input,
-    select,
-    textarea {
-        padding: 14px;
-        font-size: 16px;
-    }
-    th,
-    td {
-        padding: 16px;
-        font-size: 16px;
-    }
-}
+/* =================================
+   6. Utility & Optimized Components
+   ================================= */
 
 .vital-signs-grid {
     grid-column: 1 / -1; 
@@ -656,23 +646,20 @@ th {
    7. Print Styles
    ================================= */
 @media print {
-    /* 強制白底黑字 */
     body {
         background-color: #fff !important;
         color: #000 !important;
     }
 
-    /* 隱藏所有不需要列印的 UI 元素 */
- .patient-management, 
-.form-wrapper, 
-#chartControls, 
-.chart-container,
-#chartTitle, /* <-- 新增這一行 */
-header h1 {
-    display: none !important;
-}
+    .patient-management, 
+    .form-wrapper, 
+    #chartControls, 
+    .chart-container,
+    #chartTitle,
+    header h1 {
+        display: none !important;
+    }
 
-    /* 讓報表內容佔滿整個頁面 */
     .container, .main-content-wrapper, .right-panel {
         display: block !important;
         width: 100% !important;
@@ -683,7 +670,6 @@ header h1 {
         border: none !important;
     }
     
-    /* 顯示報表專用標題 */
     .report-header {
         display: block !important;
         text-align: center;
@@ -691,7 +677,6 @@ header h1 {
         margin-bottom: 20px;
     }
 
-    /* 讓表格線條在列印時更清晰 */
     table, th, td {
         border: 1px solid #ccc !important;
         font-size: 9pt !important;
@@ -701,13 +686,12 @@ header h1 {
         background-color: #f2f2f2 !important;
     }
 
-    /* 顯示為列印準備的圖表容器 */
     #print-charts-container {
         display: grid !important;
         grid-template-columns: 1fr 1fr;
         gap: 15px;
         margin-top: 20px;
-        page-break-before: always; /* 讓圖表另起一頁 */
+        page-break-before: always;
     }
 
     #print-charts-container h3 {
@@ -724,7 +708,6 @@ header h1 {
     }
 }
 
-/* 預設隱藏列印專用元素 */
 .report-header,
 #print-charts-container {
     display: none;
