@@ -1,25 +1,18 @@
-/* --- 全域 Box Sizing --- */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* --- 隱藏數字輸入框的預設上下箭頭 --- */
-/* 適用於 Chrome, Safari, Edge, Opera */
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
-/* 適用於 Firefox */
 input[type=number] {
   -moz-appearance: textfield;
 }
 
-/* =================================
-   1. Global Variables & Base Styles
-   ================================= */
 :root {
     --primary-color: #007bff;
     --success-color: #28a745;
@@ -50,7 +43,6 @@ input[type=number] {
     --text-secondary: #aaa;
 }
 
-
 body {
     font-family: var(--font-family-base);
     background-color: var(--body-bg);
@@ -58,10 +50,6 @@ body {
     margin: 0;
     padding: 20px
 }
-
-/* =================================
-   2. Layout & Components
-   ================================= */
 
 .container {
     max-width: 1200px;
@@ -80,12 +68,8 @@ header h1 {
 }
 
 .main-content-wrapper {
-    display: block; /* 手機上預設為區塊堆疊 */
+    display: block;
 }
-
-/* =================================
-   3. Buttons & Form Elements
-   ================================= */
 
 input,
 select,
@@ -154,7 +138,6 @@ textarea:focus {
 .btn-danger { background-color: var(--danger-color) }
 .btn-info { background-color: var(--info-color) }
 
-/* --- Quick Add 按鈕 --- */
 .btn-quick-add {
     flex-grow: 1;
     padding: 8px;
@@ -172,7 +155,6 @@ textarea:focus {
     opacity: 0.85;
 }
 
-/* --- 自訂數字輸入框微調按鈕樣式 --- */
 .custom-number-input {
     display: flex;
     align-items: center;
@@ -214,10 +196,6 @@ textarea:focus {
     border-bottom-right-radius: var(--border-radius-sm);
 }
 
-/* =================================
-   4. Specific Sections
-   ================================= */
-
 .patient-management {
     background-color: var(--section-bg);
     padding: 20px;
@@ -237,8 +215,12 @@ textarea:focus {
     flex-wrap: wrap
 }
 
+#patientSearchInput {
+    flex: 1 1 200px;
+}
+
 #patientSelector {
-    flex-grow: 1;
+    flex: 2 1 300px;
 }
 
 #patientForm {
@@ -270,33 +252,40 @@ textarea:focus {
     margin: 0 0 20px
 }
 
-.record-type-selector {
+.record-type-selector,
+.chart-type-selector {
     display: flex;
     margin-bottom: 15px
 }
 
-.record-type-btn {
+.record-type-btn,
+.chart-type-btn {
     flex: 1;
     padding: 12px;
     background-color: var(--body-bg);
     color: var(--text-secondary);
     border: 1px solid var(--border-color);
     border-left: none;
-    cursor: pointer
+    cursor: pointer;
+    font-size: 14px;
+    white-space: nowrap;
 }
 
-.record-type-btn:first-child {
+.record-type-btn:first-child,
+.chart-type-btn:first-child {
     border-top-left-radius: var(--border-radius-md);
     border-bottom-left-radius: var(--border-radius-md);
     border-left: 1px solid var(--border-color)
 }
 
-.record-type-btn:last-child {
+.record-type-btn:last-child,
+.chart-type-btn:last-child {
     border-top-right-radius: var(--border-radius-md);
     border-bottom-right-radius: var(--border-radius-md)
 }
 
-.record-type-btn.active {
+.record-type-btn.active,
+.chart-type-btn.active {
     background-color: var(--primary-color);
     color: var(--text-on-primary);
     border-color: var(--primary-color)
@@ -326,7 +315,6 @@ textarea:focus {
     grid-column: 1 / -1;
 }
 
-/* --- 新版飲食區塊樣式 --- */
 .diet-input-wrapper > label {
     display: block;
     margin-bottom: 8px;
@@ -370,13 +358,12 @@ textarea:focus {
     gap: 10px;
 }
 #addCustomDietBtn {
-    flex-shrink: 0; /* 防止按鈕被壓縮 */
+    flex-shrink: 0;
     padding: 12px 18px;
 }
 
-/* --- 強化標籤樣式 --- */
 .tag {
-    background-color: var(--success-color); /* 改為成功色，與選項區分 */
+    background-color: var(--success-color);
     color: var(--text-on-primary);
     padding: 6px 14px;
     border-radius: 18px;
@@ -409,7 +396,6 @@ textarea:focus {
     background-color: rgba(255, 255, 255, .4);
     color: #fff;
 }
-
 
 .input-group {
     display: flex;
@@ -446,23 +432,34 @@ th {
 }
 
 .right-panel {
-    min-width: 0; /* 解決 Grid 佈局中內容溢出的問題 */
+    min-width: 0;
+}
+
+.chart-section {
+    margin-top: 25px;
+}
+
+.chart-section h2 {
+    margin-bottom: 15px;
+    color: var(--text-secondary);
 }
 
 .chart-container {
     position: relative;
-    padding: 20px;
+    padding: 15px;
     background-color: var(--container-bg);
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-md);
     max-width: 100%;
+    min-height: 350px;
 }
 
-/* =================================
-   5. Responsive Design
-   ================================= */
+@media (max-width: 600px) {
+    .patient-selector-wrapper {
+        flex-direction: column;
+    }
+}
 
-/* 平板尺寸及以上 (例如 iPad 直向) */
 @media (min-width: 768px) {
     .main-content-wrapper {
         display: grid;
@@ -476,7 +473,6 @@ th {
     }
 }
 
-/* 大型平板橫向與桌機尺寸 */
 @media (min-width: 1024px) {
     .main-content-wrapper {
         grid-template-columns: 450px 1fr;
@@ -499,11 +495,6 @@ th {
     }
 }
 
-/* =================================
-   6. Utility & Optimized Components
-   ================================= */
-
-/* --- 生命徵象網格樣式 --- */
 .vital-signs-grid {
     grid-column: 1 / -1; 
     display: grid;
@@ -567,7 +558,6 @@ th {
     border: 0;
 }
 
-/* --- Toast 通知 --- */
 .toast-notification {
     position: fixed;
     bottom: 20px;
@@ -591,7 +581,6 @@ th {
     bottom: 40px;
 }
 
-/* --- 讀取中 Spinner --- */
 .spinner {
     display: inline-block;
     width: 20px;
@@ -608,7 +597,6 @@ th {
     to { transform: rotate(360deg); }
 }
 
-/* --- 用藥區塊優化樣式 --- */
 .medication-entry {
     background-color: var(--body-bg);
     border: 1px solid var(--border-color);
@@ -655,10 +643,88 @@ th {
     background-color: var(--danger-color);
     color: var(--text-on-primary);
     border-color: var(--danger-color);
-    opacity: 1; /* Override general button hover opacity */
+    opacity: 1;
 }
 
 #addMedicationBtn {
     width: 100%;
     margin-top: 5px;
+}
+
+
+/* =================================
+   7. Print Styles
+   ================================= */
+@media print {
+    /* 強制白底黑字 */
+    body {
+        background-color: #fff !important;
+        color: #000 !important;
+    }
+
+    /* 隱藏所有不需要列印的 UI 元素 */
+    .patient-management, 
+    .form-wrapper, 
+    #chartControls, 
+    .chart-container,
+    header h1 {
+        display: none !important;
+    }
+
+    /* 讓報表內容佔滿整個頁面 */
+    .container, .main-content-wrapper, .right-panel {
+        display: block !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        box-shadow: none !important;
+        border: none !important;
+    }
+    
+    /* 顯示報表專用標題 */
+    .report-header {
+        display: block !important;
+        text-align: center;
+        font-size: 24px;
+        margin-bottom: 20px;
+    }
+
+    /* 讓表格線條在列印時更清晰 */
+    table, th, td {
+        border: 1px solid #ccc !important;
+        font-size: 9pt !important;
+    }
+
+    th {
+        background-color: #f2f2f2 !important;
+    }
+
+    /* 顯示為列印準備的圖表容器 */
+    #print-charts-container {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 15px;
+        margin-top: 20px;
+        page-break-before: always; /* 讓圖表另起一頁 */
+    }
+
+    #print-charts-container h3 {
+        text-align: center;
+        font-family: sans-serif;
+        color: #333;
+        margin-bottom: 5px;
+    }
+
+    #print-charts-container .print-chart-item {
+        border: 1px solid #ccc;
+        padding: 10px;
+        border-radius: 5px;
+    }
+}
+
+/* 預設隱藏列印專用元素 */
+.report-header,
+#print-charts-container {
+    display: none;
 }

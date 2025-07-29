@@ -8,7 +8,6 @@
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap">
     <link rel="stylesheet" href="style.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -17,8 +16,10 @@
             <section class="patient-management">
                 <h2>病患管理</h2>
                 <div class="patient-selector-wrapper">
+                    <label for="patientSearchInput" class="visually-hidden">搜尋病人</label>
+                    <input type="text" id="patientSearchInput" placeholder="搜尋病人姓名/床號...">
                     <select id="patientSelector"><option value="">-- 請選擇或新增病人 --</option></select>
-                    <button type="button" id="exportPdfBtn" class="btn btn-info" disabled>匯出 PDF</button>
+                    <button type="button" id="printReportBtn" class="btn btn-info" disabled>列印 / 儲存為 PDF</button>
                     <button type="button" id="deletePatientBtn" class="btn btn-danger" disabled>刪除此病人</button>
                     <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
                     <button type="button" id="themeToggleBtn" class="btn btn-secondary">切換主題</button>
@@ -149,22 +150,30 @@
                         <button type="submit" id="addLogBtn" class="btn btn-success">新增/更新紀錄</button>
                     </div>
                 </form>
-                <div id="printableArea" class="right-panel">
-                    <section class="records-section table-wrapper-section">
+                <div class="right-panel">
+                    <section id="printableArea" class="records-section table-wrapper-section">
+                        <h2 class="report-header"></h2>
                         <h2>紀錄總覽</h2>
                         <div class="table-wrapper">
                             <table id="recordsTable">
-                                <thead>
-                                    <tr>
-                                        </tr>
-                                </thead>
+                                <thead><tr></tr></thead>
                                 <tbody></tbody>
                             </table>
                         </div>
                     </section>
+                    
                     <section class="chart-section">
-                        <h2>最近七日總攝入與總排出量趨勢圖</h2>
-                        <div class="chart-container"><canvas id="ioChart"></canvas></div>
+                        <h2 id="chartTitle">趨勢圖表</h2>
+                        <div id="chartControls" class="chart-type-selector">
+                            <button type="button" class="chart-type-btn active" data-chart="io">總量趨勢</button>
+                            <button type="button" class="chart-type-btn" data-chart="temp">體溫</button>
+                            <button type="button" class="chart-type-btn" data-chart="pulse">脈搏/心率</button>
+                            <button type="button" class="chart-type-btn" data-chart="bp">血壓</button>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="mainChartCanvas"></canvas>
+                        </div>
+                        <div id="print-charts-container"></div>
                     </section>
                 </div>
             </div>

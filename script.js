@@ -15,14 +15,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let currentPatientInternalId = null;
     let currentRecordState = {};
-    let ioChartInstance = null;
+    let mainChartInstance = null;
+    let currentChartType = 'io';
+
     const dom = {
         patientSelector: document.getElementById('patientSelector'),
+        patientSearchInput: document.getElementById('patientSearchInput'),
         newPatientBtn: document.getElementById('newPatientBtn'),
         deletePatientBtn: document.getElementById('deletePatientBtn'),
-        exportPdfBtn: document.getElementById('exportPdfBtn'),
+        printReportBtn: document.getElementById('printReportBtn'),
         themeToggleBtn: document.getElementById('themeToggleBtn'),
-        printableArea: document.getElementById('printableArea'),
         patientForm: document.getElementById('patientForm'),
         savePatientBtn: document.getElementById('savePatientBtn'),
         cancelPatientBtn: document.getElementById('cancelPatientBtn'),
@@ -43,16 +45,15 @@ document.addEventListener('DOMContentLoaded', () => {
         dietOptionsGrid: document.getElementById('diet-options-grid'),
         customDietInput: document.getElementById('customDietInput'),
         addCustomDietBtn: document.getElementById('addCustomDietBtn'),
-        ioChartCanvas: document.getElementById('ioChart'),
+        chartControls: document.getElementById('chartControls'),
+        mainChartCanvas: document.getElementById('mainChartCanvas'),
+        chartTitle: document.getElementById('chartTitle'),
+        printChartsContainer: document.getElementById('print-charts-container'),
+        reportHeader: document.querySelector('.report-header'),
     };
-
-    // --- Data Migration Functions (stubs for future use) ---
-    function migrateOldData(){/*...*/}
-    function migrateMedicationData(){/*...*/}
-    function migrateCorruptedDietContent(){/*...*/}
     
     // --- Helper & Logic Functions ---
-    function showToast(message) {
+    function showToast(message, duration = 3000) {
         const existingToast = document.querySelector('.toast-notification');
         if (existingToast) existingToast.remove();
         const toast = document.createElement('div');
@@ -63,41 +64,29 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => {
             toast.classList.remove('show');
             toast.addEventListener('transitionend', () => toast.remove());
-        }, 3000);
+        }, duration);
     }
-    function triggerHapticFeedback() {
-        if (navigator.vibrate) navigator.vibrate(10);
-    }
+    function triggerHapticFeedback() { if (navigator.vibrate) navigator.vibrate(10); }
     function initializeState(){ currentRecordState = { dietContent: [], medications: [] }; }
     function saveAllData(){ localStorage.setItem('carelog-all-patients', JSON.stringify(allPatientData)); }
     
     function mergeDataIntoRecord(targetRecord, newData) {
-        // 合併所有數值型別的欄位
         ['waterAmount', 'urineOutput', 'bodyTemp', 'pulse', 'respiration', 'bpSystolic', 'bpDiastolic', 'drainage'].forEach(key => {
             const newValue = parseFloat(newData[key]);
             if (!isNaN(newValue)) {
-                if (key === 'bodyTemp' && newValue > 0) { // 體溫，有新值就覆蓋
-                    targetRecord[key] = newValue;
-                } else if (key !== 'bodyTemp') { // 其他數值，累加
+                if (key === 'bodyTemp' && newValue > 0) { targetRecord[key] = newValue;
+                } else if (key !== 'bodyTemp') {
                     const oldValue = parseFloat(targetRecord[key]) || 0;
                     targetRecord[key] = oldValue + newValue;
                 }
             }
         });
-    
-        // 合併所有文字型別的欄位 (若有新值則覆蓋)
         ['dietNotes', 'bowelMovement', 'specialObservation'].forEach(key => {
-            if (newData[key] && String(newData[key]).trim() !== '') {
-                targetRecord[key] = newData[key];
-            }
+            if (newData[key] && String(newData[key]).trim() !== '') { targetRecord[key] = newData[key]; }
         });
-    
-        // 合併陣列型別的欄位
         targetRecord.dietContent = Array.from(new Set([...(targetRecord.dietContent || []), ...(newData.dietContent || [])]));
         const newMeds = (newData.medications || []).filter(med => med.name || med.route || med.dosage);
         targetRecord.medications = (targetRecord.medications || []).concat(newMeds);
-    
-        // 更新時間戳
         targetRecord.time = new Date().toISOString();
     }
 
@@ -109,129 +98,162 @@ document.addEventListener('DOMContentLoaded', () => {
         if ((now - lastRecordTime) / 60000 < MERGE_WINDOW_MINUTES) return lastRecord;
         return null;
     }
+
     function updatePatientActionButtonsState() {
         const isPatientSelected = !!currentPatientInternalId;
         if (dom.deletePatientBtn) dom.deletePatientBtn.disabled = !isPatientSelected;
-        if (dom.exportPdfBtn) dom.exportPdfBtn.disabled = !isPatientSelected;
+        if (dom.printReportBtn) dom.printReportBtn.disabled = !isPatientSelected;
     }
 
-    // --- Chart & PDF Functions ---
-function processDataForChart(records) {
-    const last7DaysData = {};
-    const labels = [];
-    for (let i = 6; i >= 0; i--) {
-        const date = new Date();
-        date.setDate(date.getDate() - i);
-        const key = date.toISOString().split('T')[0];
-        const label = date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-        labels.push(label);
-        last7DaysData[key] = { intake: 0, output: 0 };
+    // --- Chart & Print Functions ---
+    function getRecentDaysDataStructure() {
+        const data = {};
+        const labels = [];
+        for (let i = 6; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(date.getDate() - i);
+            const key = date.toISOString().split('T')[0];
+            const label = date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+            labels.push(label);
+            data[key] = {};
+        }
+        return { labels, data };
     }
 
-    (records || []).forEach(record => {
-        const recordDateKey = record.time.split('T')[0];
-        if (last7DaysData[recordDateKey]) {
-            // 計算總攝入量 (目前只有水分)
-            last7DaysData[recordDateKey].intake += parseFloat(record.waterAmount) || 0;
-            
-            // 【關鍵修改】計算總排出量 (排尿量 + 引流管量)
-            const urine = parseFloat(record.urineOutput) || 0;
-            const drainage = parseFloat(record.drainage) || 0;
-            last7DaysData[recordDateKey].output += urine + drainage;
-        }
-    });
-
-    const intakeData = Object.values(last7DaysData).map(day => day.intake);
-    const outputData = Object.values(last7DaysData).map(day => day.output);
-    return { labels, intakeData, outputData };
-}
-function renderChart(patientData, optionsOverrides = {}) {
-    if (!dom.ioChartCanvas) return;
-    const chartData = processDataForChart(patientData.records);
-    if (ioChartInstance) ioChartInstance.destroy();
-    const defaultOptions = {
-        responsive: true, maintainAspectRatio: false, animation: {},
-        scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
-        plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
-    };
-    const finalOptions = { ...defaultOptions, ...optionsOverrides };
-    ioChartInstance = new Chart(dom.ioChartCanvas, {
-        type: 'bar',
-        data: {
-            labels: chartData.labels,
-            datasets: [{
-                label: '總攝入量 (ml)', // Minor update for clarity
-                data: chartData.intakeData,
-                backgroundColor: 'rgba(0, 123, 255, 0.5)', 
-                borderColor: 'rgba(0, 123, 255, 1)', 
-                borderWidth: 1
-            }, {
-                // 【關鍵修改】更新圖例文字
-                label: '總排出量 (ml)', 
-                data: chartData.outputData,
-                backgroundColor: 'rgba(23, 162, 184, 0.5)', 
-                borderColor: 'rgba(23, 162, 184, 1)', 
-                borderWidth: 1
-            }]
-        },
-        options: finalOptions
-    });
-}
-    function exportPatientDataAsPDF() {
-        if (!currentPatientInternalId || typeof html2pdf === 'undefined') {
-            console.error("未選擇病人或 html2pdf 函式庫未載入。");
-            return;
-        }
-        const patientData = allPatientData[currentPatientInternalId];
-        if (!patientData) return;
-        const printableArea = dom.printableArea;
-        const chartContainer = printableArea.querySelector('.chart-container');
-        const canvas = dom.ioChartCanvas;
-        const headerEl = document.createElement('div');
-        headerEl.className = 'pdf-header';
-        const records = patientData.records || [];
-        const chartData = processDataForChart(records);
-        const totalIntake = chartData.intakeData.reduce((sum, val) => sum + val, 0);
-        const avgIntake = totalIntake > 0 ? (totalIntake / 7).toFixed(0) : 0;
-        let tempSum = 0; let tempCount = 0;
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        records.filter(r => new Date(r.time) >= sevenDaysAgo && r.bodyTemp).forEach(r => {
-            tempSum += parseFloat(r.bodyTemp);
-            tempCount++;
+    function processIODataForChart(records) {
+        const { labels, data } = getRecentDaysDataStructure();
+        Object.keys(data).forEach(key => { data[key] = { intake: 0, output: 0 }; });
+        (records || []).forEach(record => {
+            const recordDateKey = record.time.split('T')[0];
+            if (data[recordDateKey]) {
+                data[recordDateKey].intake += parseFloat(record.waterAmount) || 0;
+                const urine = parseFloat(record.urineOutput) || 0;
+                const drainage = parseFloat(record.drainage) || 0;
+                data[recordDateKey].output += urine + drainage;
+            }
         });
-        const avgTemp = tempCount > 0 ? (tempSum / tempCount).toFixed(1) : '無紀錄';
-        headerEl.innerHTML = `<h2>${patientData.name} - 照護紀錄報告</h2><p>病床號/房號：${patientData.id || '未提供'}</p><p>報告產出日期：${new Date().toLocaleDateString('zh-TW')}</p><div class="pdf-header-summary"><p>近七日日均攝取水量：<strong>${avgIntake} ml</strong></p><p>近七日平均體溫：<strong>${avgTemp} °C</strong></p></div>`;
-        printableArea.prepend(headerEl);
-        const chartImage = ioChartInstance.toBase64Image();
-        const imgElement = document.createElement('img');
-        imgElement.src = chartImage;
-        imgElement.style.width = '100%';
-        imgElement.style.display = 'block';
-        imgElement.onload = () => {
-            const options = {
-                margin: 15,
-                filename: `${patientData.name}_照護報告_${new Date().toISOString().split('T')[0]}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-            html2pdf().from(printableArea).set(options).save().finally(() => {
-                headerEl.remove();
-                imgElement.remove();
-                canvas.style.display = 'block';
-            });
-        };
-        canvas.style.display = 'none';
-        chartContainer.appendChild(imgElement);
-        imgElement.onerror = () => {
-            console.error("圖表圖片載入失敗，無法生成 PDF。");
-            headerEl.remove();
-            canvas.style.display = 'block';
-            showToast('生成圖表時發生錯誤，無法匯出 PDF。');
-        };
+        const intakeData = Object.values(data).map(day => day.intake);
+        const outputData = Object.values(data).map(day => day.output);
+        return { labels, datasets: [ { label: '總攝入量 (ml)', data: intakeData, backgroundColor: 'rgba(0, 123, 255, 0.5)', borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 1 }, { label: '總排出量 (ml)', data: outputData, backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1 } ] };
+    }
+
+    function processSingleVitalDataForChart(records, key, label, color) {
+        const { labels, data } = getRecentDaysDataStructure();
+        Object.keys(data).forEach(k => { data[k] = null; });
+        (records || []).forEach(record => {
+            const recordDateKey = record.time.split('T')[0];
+            const value = parseFloat(record[key]);
+            if (data.hasOwnProperty(recordDateKey) && value > 0) { data[recordDateKey] = value; }
+        });
+        const vitalData = Object.values(data);
+        return { labels, datasets: [{ label, data: vitalData, borderColor: color, backgroundColor: `${color}33`, fill: true, tension: 0.1, spanGaps: false }] };
+    }
+
+    function processBPDataForChart(records) {
+        const { labels, data } = getRecentDaysDataStructure();
+        Object.keys(data).forEach(key => { data[key] = { systolic: null, diastolic: null }; });
+        (records || []).forEach(record => {
+            const recordDateKey = record.time.split('T')[0];
+            if (data.hasOwnProperty(recordDateKey)) {
+                if (parseFloat(record.bpSystolic) > 0) data[recordDateKey].systolic = parseFloat(record.bpSystolic);
+                if (parseFloat(record.bpDiastolic) > 0) data[recordDateKey].diastolic = parseFloat(record.bpDiastolic);
+            }
+        });
+        const systolicData = Object.values(data).map(d => d.systolic);
+        const diastolicData = Object.values(data).map(d => d.diastolic);
+        return { labels, datasets: [
+            { label: '收縮壓 (mmHg)', data: systolicData, borderColor: 'rgba(220, 53, 69, 1)', backgroundColor: 'rgba(220, 53, 69, 0.2)', fill: false, tension: 0.1 },
+            { label: '舒張壓 (mmHg)', data: diastolicData, borderColor: 'rgba(25, 135, 84, 1)', backgroundColor: 'rgba(25, 135, 84, 0.2)', fill: false, tension: 0.1 }
+        ]};
+    }
+
+    function updateChart(canvas, type, data, options) {
+        if (mainChartInstance) { mainChartInstance.destroy(); }
+        mainChartInstance = new Chart(canvas, { type, data, options });
     }
     
+    function renderCurrentChart() {
+        if (!currentPatientInternalId) return;
+        const patientData = allPatientData[currentPatientInternalId];
+        let chartData, chartType = 'line', chartOptions = { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' } } };
+        
+        switch (currentChartType) {
+            case 'io':
+                chartData = processIODataForChart(patientData.records);
+                chartType = 'bar';
+                dom.chartTitle.textContent = '總攝入與總排出量趨勢圖';
+                break;
+            case 'temp':
+                chartData = processSingleVitalDataForChart(patientData.records, 'bodyTemp', '體溫 (°C)', 'rgba(255, 99, 132, 1)');
+                dom.chartTitle.textContent = '體溫趨勢圖';
+                break;
+            case 'pulse':
+                chartData = processSingleVitalDataForChart(patientData.records, 'pulse', '脈搏/心率 (次/分)', 'rgba(54, 162, 235, 1)');
+                dom.chartTitle.textContent = '脈搏/心率趨勢圖';
+                break;
+            case 'bp':
+                chartData = processBPDataForChart(patientData.records);
+                dom.chartTitle.textContent = '血壓趨勢圖';
+                break;
+        }
+        updateChart(dom.mainChartCanvas, chartType, chartData, chartOptions);
+    }
+
+    async function prepareChartsForPrinting() {
+        if (!currentPatientInternalId) return;
+        const patientData = allPatientData[currentPatientInternalId];
+        dom.printChartsContainer.innerHTML = '';
+        dom.reportHeader.textContent = `${patientData.name} - 照護紀錄總結報告`;
+
+        const chartConfigs = [
+            { title: '總量趨勢', type: 'bar', data: processIODataForChart(patientData.records) },
+            { title: '體溫趨勢', type: 'line', data: processSingleVitalDataForChart(patientData.records, 'bodyTemp', '體溫 (°C)') },
+            { title: '脈搏趨勢', type: 'line', data: processSingleVitalDataForChart(patientData.records, 'pulse', '脈搏/心率') },
+            { title: '血壓趨勢', type: 'line', data: processBPDataForChart(patientData.records) }
+        ];
+
+        const chartImagePromises = chartConfigs.map(config => {
+            return new Promise(resolve => {
+                const tempCanvas = document.createElement('canvas');
+                // 為了避免 Chart.js 的響應式尺寸問題，我們暫時給它一個固定尺寸
+                tempCanvas.width = 400;
+                tempCanvas.height = 300;
+
+                const chart = new Chart(tempCanvas, {
+                    type: config.type,
+                    data: config.data,
+                    options: {
+                        responsive: false, // 關閉響應式
+                        maintainAspectRatio: false,
+                        animation: false, // 關閉動畫以立即渲染
+                        plugins: {
+                            legend: { display: config.type !== 'line' || config.title === '血壓趨勢' }
+                        }
+                    }
+                });
+
+                // Chart.js 渲染需要極短的時間
+                setTimeout(() => {
+                    const container = document.createElement('div');
+                    container.className = 'print-chart-item';
+                    const titleEl = document.createElement('h3');
+                    titleEl.textContent = config.title;
+                    const img = new Image();
+                    img.src = chart.toBase64Image();
+                    img.style.width = '100%';
+                    container.appendChild(titleEl);
+container.appendChild(img);
+                    resolve(container);
+                    chart.destroy();
+                }, 100); // 給予 100ms 的渲染緩衝時間
+            });
+        });
+        
+        const chartElements = await Promise.all(chartImagePromises);
+        dom.printChartsContainer.innerHTML = ''; // 再次清空以防萬一
+        chartElements.forEach(el => dom.printChartsContainer.appendChild(el));
+    }
+
     // --- UI RENDERING FUNCTIONS ---
     function populatePatientSelector() {
         const currentSelection = dom.patientSelector.value;
@@ -243,56 +265,73 @@ function renderChart(patientData, optionsOverrides = {}) {
             dom.patientSelector.appendChild(option);
         });
         if (currentSelection) dom.patientSelector.value = currentSelection;
+        if (dom.patientSearchInput) { dom.patientSearchInput.dispatchEvent(new Event('input')); }
     }
+    
     function selectPatient(internalId) {
         currentPatientInternalId = internalId;
-        clearFormAndState();
+        // 清理 UI 和狀態
+        const formSections = document.querySelectorAll('.form-section');
+        formSections.forEach(section => {
+            const inputs = section.querySelectorAll('input, textarea');
+            inputs.forEach(input => input.value = '');
+        });
+        initializeState();
+        updateDietSelectionUI();
+        renderMedicationsList();
+    
         if (internalId) {
-            const patientData = allPatientData[internalId];
             dom.patientSelector.value = internalId;
             dom.recordSection.classList.remove('hidden');
-            renderTable(patientData);
-            renderChart(patientData);
+            renderTable(allPatientData[internalId]);
+            renderCurrentChart();
+            prepareChartsForPrinting();
         } else {
             dom.patientSelector.value = "";
             dom.recordSection.classList.add('hidden');
             if (dom.recordsTableBody) dom.recordsTableBody.innerHTML = '';
-            if (ioChartInstance) ioChartInstance.destroy();
+            if (mainChartInstance) mainChartInstance.destroy();
+            dom.reportHeader.textContent = '';
+            dom.printChartsContainer.innerHTML = '';
         }
         dom.patientForm.classList.add('hidden');
         setActiveForm('diet');
         updatePatientActionButtonsState();
     }
+
     function setActiveForm(formType) {
         document.querySelectorAll('.record-type-btn').forEach(btn => btn.classList.remove('active'));
-        dom.allFormSections.forEach(section => section.classList.remove('active'));
+        document.querySelectorAll('.form-section').forEach(section => section.classList.remove('active'));
         const activeButton = document.querySelector(`.record-type-btn[data-form="${formType}"]`);
         const activeSection = document.getElementById(`${formType}-fields`);
         if (activeButton) activeButton.classList.add('active');
         if (activeSection) activeSection.classList.add('active');
     }
+
     function clearFormAndState() {
         initializeState();
         dom.recordForm.reset();
         renderMedicationsList();
         updateDietSelectionUI();
     }
-
-    // --- DIET UI FUNCTIONS ---
+    
     function renderDietOptionsGrid() {
-        dom.dietOptionsGrid.innerHTML = '';
+        const dietOptionsGrid = document.getElementById('diet-options-grid');
+        dietOptionsGrid.innerHTML = '';
         DIET_OPTIONS.forEach(option => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'diet-option-btn';
             button.textContent = option;
             button.dataset.diet = option;
-            dom.dietOptionsGrid.appendChild(button);
+            dietOptionsGrid.appendChild(button);
         });
     }
+
     function updateDietSelectionUI() {
+        const dietTagsContainer = document.getElementById('diet-tags-container');
         const selectedItems = currentRecordState.dietContent || [];
-        dom.dietTagsContainer.innerHTML = "";
+        dietTagsContainer.innerHTML = "";
         selectedItems.forEach(item => {
             const tag = document.createElement('span');
             tag.className = 'tag';
@@ -303,39 +342,31 @@ function renderChart(patientData, optionsOverrides = {}) {
             removeBtn.textContent = '×';
             removeBtn.dataset.diet = item;
             tag.appendChild(removeBtn);
-            dom.dietTagsContainer.appendChild(tag);
+            dietTagsContainer.appendChild(tag);
         });
         document.querySelectorAll('.diet-option-btn').forEach(btn => {
             btn.classList.toggle('is-selected', selectedItems.includes(btn.dataset.diet));
         });
     }
-
+    
     function renderMedicationsList() {
-        dom.medicationsList.innerHTML = "";
+        const medicationsList = document.getElementById('medications-list');
+        medicationsList.innerHTML = "";
         if (!currentRecordState.medications || currentRecordState.medications.length === 0) {
             const placeholder = document.createElement('div');
             placeholder.textContent = '點擊下方「＋」按鈕來新增用藥項目。';
             placeholder.style.textAlign = 'center';
             placeholder.style.color = 'var(--text-secondary)';
             placeholder.style.padding = '20px 0';
-            dom.medicationsList.appendChild(placeholder);
+            medicationsList.appendChild(placeholder);
             return;
         }
         currentRecordState.medications.forEach((med, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'medication-entry';
             const routeOptions = MED_ROUTES.map(route => `<option value="${route}" ${med.route === route ? 'selected' : ''}>${route}</option>`).join('');
-            entryDiv.innerHTML = `
-                <div class="medication-grid">
-                    <div class="medication-fields">
-                        <input type="text" placeholder="藥品名稱 (如: 脈優)" data-med-index="${index}" data-med-key="name" value="${med.name || ''}">
-                        <select data-med-index="${index}" data-med-key="route">${routeOptions}</select>
-                        <input type="text" placeholder="劑量/頻率 (如: 1顆/早)" data-med-index="${index}" data-med-key="dosage" value="${med.dosage || ''}">
-                    </div>
-                    <button type="button" class="med-delete-btn" title="刪除此藥物" data-med-index="${index}">🗑️</button>
-                </div>
-            `;
-            dom.medicationsList.appendChild(entryDiv);
+            entryDiv.innerHTML = `<div class="medication-grid"><div class.medication-fields"><input type="text" placeholder="藥品名稱" data-med-index="${index}" data-med-key="name" value="${med.name || ''}"><select data-med-index="${index}" data-med-key="route">${routeOptions}</select><input type="text" placeholder="劑量/頻率" data-med-index="${index}" data-med-key="dosage" value="${med.dosage || ''}"></div><button type="button" class="med-delete-btn" title="刪除此藥物" data-med-index="${index}">🗑️</button></div>`;
+            medicationsList.appendChild(entryDiv);
         });
     }
 
@@ -353,7 +384,6 @@ function renderChart(patientData, optionsOverrides = {}) {
             const row = document.createElement('tr');
             const recordDate = new Date(record.time);
             const timeInfo = recordDate.toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(' ', '<br>');
-            
             let vitalsAndOutputInfo = [];
             if (record.bodyTemp) vitalsAndOutputInfo.push(`體溫: ${parseFloat(record.bodyTemp).toFixed(1)}°C`);
             if (record.pulse) vitalsAndOutputInfo.push(`心率: ${record.pulse}`);
@@ -362,29 +392,36 @@ function renderChart(patientData, optionsOverrides = {}) {
             if (record.urineOutput) vitalsAndOutputInfo.push(`排尿: ${record.urineOutput}ml`);
             if (record.drainage) vitalsAndOutputInfo.push(`引流: ${record.drainage}ml`);
             if (record.bowelMovement) vitalsAndOutputInfo.push(`排便: ${record.bowelMovement}`);
-
             const dietInfo = (Array.isArray(record.dietContent) && record.dietContent.length > 0) ? record.dietContent.join(', ') : '---';
             const dietNotesInfo = record.dietNotes || '---';
             const waterAmountInfo = record.waterAmount || '---';
             const medInfo = (record.medications && record.medications.length > 0) ? record.medications.map(med => `${med.name || '未命名'} (${med.dosage || '未註明'})`).join('<br>') : '---';
             const observationInfo = record.specialObservation || '---';
             const actionsInfo = `<button class="delete-btn" data-id="${record.id}" title="刪除">🗑️</button>`;
-            
-            row.innerHTML = `
-                <td>${timeInfo}</td>
-                <td>${dietInfo}</td>
-                <td>${dietNotesInfo}</td>
-                <td>${waterAmountInfo}</td>
-                <td>${vitalsAndOutputInfo.length > 0 ? vitalsAndOutputInfo.join('<br>') : '---'}</td>
-                <td>${medInfo}</td>
-                <td>${observationInfo}</td>
-                <td>${actionsInfo}</td>
-            `;
+            row.innerHTML = `<td>${timeInfo}</td><td>${dietInfo}</td><td>${dietNotesInfo}</td><td>${waterAmountInfo}</td><td>${vitalsAndOutputInfo.length > 0 ? vitalsAndOutputInfo.join('<br>') : '---'}</td><td>${medInfo}</td><td>${observationInfo}</td><td>${actionsInfo}</td>`;
             dom.recordsTableBody.appendChild(row);
         });
     }
 
     // --- EVENT LISTENERS ---
+    dom.printReportBtn.addEventListener('click', () => {
+        if (!currentPatientInternalId) return;
+        // 列印前最後一次確保圖表是最新的
+        prepareChartsForPrinting().then(() => {
+            window.print();
+        });
+    });
+
+    dom.patientSearchInput.addEventListener('input', e => {
+        const searchTerm = e.target.value.toLowerCase().trim();
+        const options = dom.patientSelector.options;
+        for (let i = 1; i < options.length; i++) {
+            const option = options[i];
+            const optionText = option.textContent.toLowerCase();
+            if (optionText.includes(searchTerm)) { option.style.display = ''; } else { option.style.display = 'none'; }
+        }
+    });
+
     dom.newPatientBtn.addEventListener('click', () => { dom.patientForm.classList.remove('hidden'); dom.patientNameInput.focus(); });
     dom.cancelPatientBtn.addEventListener('click', () => { dom.patientForm.classList.add('hidden'); });
     dom.patientForm.addEventListener('submit', e => {
@@ -408,11 +445,28 @@ function renderChart(patientData, optionsOverrides = {}) {
             triggerHapticFeedback();
         }, 500);
     });
+
     dom.patientSelector.addEventListener('change', () => selectPatient(dom.patientSelector.value));
-    dom.recordTypeSelector.addEventListener('click', e => { const button = e.target.closest('.record-type-btn'); if (button) setActiveForm(button.dataset.form); });
     
+    dom.recordTypeSelector.addEventListener('click', e => {
+        const button = e.target.closest('.record-type-btn');
+        if (button) setActiveForm(button.dataset.form);
+    });
+    
+    dom.chartControls.addEventListener('click', e => {
+        const button = e.target.closest('.chart-type-btn');
+        if (button && !button.classList.contains('active')) {
+            currentChartType = button.dataset.chart;
+            dom.chartControls.querySelector('.active').classList.remove('active');
+            button.classList.add('active');
+            renderCurrentChart();
+            triggerHapticFeedback();
+        }
+    });
+
     function handleAddCustomDiet() {
-        const customItem = dom.customDietInput.value.trim();
+        const customDietInput = document.getElementById('customDietInput');
+        const customItem = customDietInput.value.trim();
         if (!customItem) return;
         const dietContent = currentRecordState.dietContent || [];
         if (dietContent.length >= 5) { showToast('最多只能新增五項飲食內容。'); return; }
@@ -421,11 +475,13 @@ function renderChart(patientData, optionsOverrides = {}) {
             currentRecordState.dietContent = dietContent;
             updateDietSelectionUI();
         }
-        dom.customDietInput.value = '';
+        customDietInput.value = '';
     }
-    dom.addCustomDietBtn.addEventListener('click', handleAddCustomDiet);
-    dom.customDietInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomDiet(); } });
-    dom.dietOptionsGrid.addEventListener('click', e => {
+
+    document.getElementById('addCustomDietBtn').addEventListener('click', handleAddCustomDiet);
+    document.getElementById('customDietInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomDiet(); } });
+    
+    document.getElementById('diet-options-grid').addEventListener('click', e => {
         const target = e.target;
         if (target.matches('.diet-option-btn')) {
             const item = target.dataset.diet;
@@ -441,7 +497,8 @@ function renderChart(patientData, optionsOverrides = {}) {
             updateDietSelectionUI();
         }
     });
-    dom.dietTagsContainer.addEventListener('click', e => {
+
+    document.getElementById('diet-tags-container').addEventListener('click', e => {
         const target = e.target.closest('.tag-remove-btn');
         if (target) {
             const item = target.dataset.diet;
@@ -455,12 +512,12 @@ function renderChart(patientData, optionsOverrides = {}) {
         }
     });
 
-    dom.addMedicationBtn.addEventListener('click', () => { if (!currentRecordState.medications) currentRecordState.medications = []; currentRecordState.medications.push({ name: '', route: '口服', dosage: '' }); renderMedicationsList(); });
     dom.medicationsList.addEventListener('input', e => { if (e.target.matches('[data-med-index]')) { const index = parseInt(e.target.dataset.medIndex, 10); const key = e.target.dataset.medKey; currentRecordState.medications[index][key] = e.target.value; } });
     dom.medicationsList.addEventListener('click', e => { if (e.target.matches('.med-delete-btn')) { const index = parseInt(e.target.dataset.medIndex, 10); currentRecordState.medications.splice(index, 1); renderMedicationsList(); } });
-    
+    document.getElementById('addMedicationBtn').addEventListener('click', () => { if (!currentRecordState.medications) currentRecordState.medications = []; currentRecordState.medications.push({ name: '', route: '口服', dosage: '' }); renderMedicationsList(); });
+
     dom.allStatefulInputs.forEach(input => { input.addEventListener('input', e => { const key = e.target.dataset.key; if (key) currentRecordState[key] = e.target.value; }); });
-    
+
     dom.recordForm.addEventListener('submit', e => {
         e.preventDefault();
         if (!currentPatientInternalId) return showToast('請先選擇一位病人！');
@@ -468,12 +525,6 @@ function renderChart(patientData, optionsOverrides = {}) {
         const isStateEmpty = Object.values(currentRecordState).every(value => !value || (Array.isArray(value) && value.length === 0));
         if (isStateEmpty) return showToast('表單是空的，沒有可新增的紀錄。');
         
-        const currentActiveButton = document.querySelector('.record-type-btn.active');
-        const currentFormType = currentActiveButton ? currentActiveButton.dataset.form : 'diet';
-        const formSequence = ['diet', 'output', 'med', 'other'];
-        const currentIndex = formSequence.indexOf(currentFormType);
-        const nextFormType = (currentIndex + 1) % formSequence.length;
-
         const mergeableRecord = findMergeableRecord(patientData);
         let message = '';
         if (mergeableRecord) {
@@ -486,36 +537,39 @@ function renderChart(patientData, optionsOverrides = {}) {
         }
         saveAllData();
         renderTable(patientData);
-        renderChart(patientData);
-        
+        renderCurrentChart();
+        prepareChartsForPrinting();
         clearFormAndState();
+        
+        const currentActiveButton = document.querySelector('.record-type-btn.active');
+        const currentFormType = currentActiveButton ? currentActiveButton.dataset.form : 'diet';
+        const formSequence = ['diet', 'output', 'med', 'other'];
+        const currentIndex = formSequence.indexOf(currentFormType);
+        const nextFormType = formSequence[(currentIndex + 1) % formSequence.length];
         setActiveForm(nextFormType);
+
         showToast(message);
         triggerHapticFeedback();
     });
 
     dom.clearFormBtn.addEventListener('click', () => { if (confirm('確定要清除此筆在表單上的所有內容嗎？')) { clearFormAndState(); setActiveForm('diet'); } });
-    
+
     dom.recordsTableBody.addEventListener('click', e => {
         const deleteButton = e.target.closest('.delete-btn');
         if (deleteButton) {
             const idToDelete = parseInt(deleteButton.dataset.id, 10);
             const patientData = allPatientData[currentPatientInternalId];
-            if (patientData) {
-                const recordToDelete = patientData.records.find(r => r.id === idToDelete);
-                const recordTime = recordToDelete ? new Date(recordToDelete.time).toLocaleString('zh-TW') : '該筆';
-
-                if (confirm(`您確定要刪除這筆於「${recordTime}」的紀錄嗎？`)) {
-                    patientData.records = patientData.records.filter(r => r.id !== idToDelete);
-                    saveAllData();
-                    renderTable(patientData);
-                    renderChart(patientData);
-                }
+            if (patientData && confirm(`您確定要刪除這筆紀錄嗎？`)) {
+                patientData.records = patientData.records.filter(r => r.id !== idToDelete);
+                saveAllData();
+                renderTable(patientData);
+                renderCurrentChart();
+                prepareChartsForPrinting();
             }
         }
     });
 
-    dom.formContent.addEventListener('click', e => {
+    document.body.addEventListener('click', e => {
         const quickAddBtn = e.target.closest('.btn-quick-add');
         if (quickAddBtn) {
             const targetInputId = quickAddBtn.dataset.targetInput;
@@ -524,37 +578,36 @@ function renderChart(patientData, optionsOverrides = {}) {
             if (targetInput && !isNaN(amountToAdd)) {
                 targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd;
                 targetInput.dispatchEvent(new Event('input'));
-                triggerHapticFeedback();
             }
         }
-    });
-    
-    document.body.addEventListener('click', e => {
+        
         const stepperBtn = e.target.closest('.stepper-btn');
         if (stepperBtn) {
             const targetInput = document.getElementById(stepperBtn.dataset.targetInput);
             if (targetInput) {
                 let currentValue = parseFloat(targetInput.value) || 0;
-                const baseStep = parseFloat(targetInput.step) || 1;
-                const step = e.shiftKey ? (baseStep * 10) : baseStep;
+                const step = parseFloat(targetInput.step) || 1;
                 if (stepperBtn.classList.contains('stepper-up')) {
                     currentValue += step;
-                } else if (stepperBtn.classList.contains('stepper-down')) {
-                    const min = parseFloat(targetInput.min);
-                    currentValue -= step;
-                    if (!isNaN(min) && currentValue < min) currentValue = min;
+                } else {
+                    currentValue = Math.max(0, currentValue - step);
                 }
-                const decimalPlaces = baseStep.toString().split('.')[1]?.length || 0;
-                targetInput.value = currentValue.toFixed(decimalPlaces);
-                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
-                triggerHapticFeedback();
+                targetInput.value = currentValue;
+                targetInput.dispatchEvent(new Event('input'));
             }
         }
     });
 
-    dom.deletePatientBtn.addEventListener('click', () => { if (!currentPatientInternalId) return; const patientToDelete = allPatientData[currentPatientInternalId]; if (!patientToDelete) return; if (confirm(`您確定要永久刪除病患 「${patientToDelete.name}」 的所有資料嗎？\n\n這個操作無法復原！`)) { delete allPatientData[currentPatientInternalId]; saveAllData(); populatePatientSelector(); selectPatient(null); showToast(`病患 「${patientToDelete.name}」 的資料已成功刪除。`); } });
-    
-    dom.exportPdfBtn.addEventListener('click', exportPatientDataAsPDF);
+    dom.deletePatientBtn.addEventListener('click', () => {
+        if (!currentPatientInternalId) return;
+        const patientName = allPatientData[currentPatientInternalId].name;
+        if (confirm(`確定要永久刪除病患 "${patientName}" 的所有資料嗎？此操作無法復原。`)) {
+            delete allPatientData[currentPatientInternalId];
+            saveAllData();
+            populatePatientSelector();
+            selectPatient(null);
+        }
+    });
 
     dom.themeToggleBtn.addEventListener('click', () => {
         const currentTheme = document.documentElement.getAttribute('data-theme');
@@ -567,9 +620,6 @@ function renderChart(patientData, optionsOverrides = {}) {
     });
     
     // --- Initial Load ---
-    migrateOldData();
-    migrateMedicationData();
-    migrateCorruptedDietContent();
     initializeState();
     populatePatientSelector();
     renderDietOptionsGrid();
