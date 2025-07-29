@@ -21,9 +21,12 @@
                     <button type="button" id="exportPdfBtn" class="btn btn-info" disabled>匯出 PDF</button>
                     <button type="button" id="deletePatientBtn" class="btn btn-danger" disabled>刪除此病人</button>
                     <button type="button" id="newPatientBtn" class="btn btn-primary">＋ 新增病人</button>
+                    <button type="button" id="themeToggleBtn" class="btn btn-secondary">切換主題</button>
                 </div>
                 <form id="patientForm" class="hidden">
+                    <label for="patientName" class="visually-hidden">病人姓名</label>
                     <input type="text" id="patientName" placeholder="病人姓名 (必填)" required>
+                    <label for="patientId" class="visually-hidden">病床號/房號</label>
                     <input type="text" id="patientId" placeholder="病床號/房號">
                     <div class="patient-form-actions">
                         <button type="submit" id="savePatientBtn" class="btn btn-success">儲存病人</button>
@@ -57,7 +60,7 @@
                             <div class="input-group">
                                 <div class="custom-number-input">
                                     <button type="button" class="stepper-btn stepper-down" data-target-input="waterAmountInput" tabindex="-1">-</button>
-                                    <input type="number" class="stateful-input" id="waterAmountInput" data-key="waterAmount" placeholder="估計水分 (ml)">
+                                    <input type="number" class="stateful-input" id="waterAmountInput" data-key="waterAmount" placeholder="估計水分 (ml)" inputmode="decimal">
                                     <button type="button" class="stepper-btn stepper-up" data-target-input="waterAmountInput" tabindex="-1">+</button>
                                 </div>
                                 <div class="quick-add-buttons">
@@ -71,7 +74,7 @@
                             <div class="input-group">
                                 <div class="custom-number-input">
                                     <button type="button" class="stepper-btn stepper-down" data-target-input="urineOutputInput" tabindex="-1">-</button>
-                                    <input type="number" class="stateful-input" id="urineOutputInput" data-key="urineOutput" placeholder="排尿量 (ml)">
+                                    <input type="number" class="stateful-input" id="urineOutputInput" data-key="urineOutput" placeholder="排尿量 (ml)" inputmode="decimal">
                                     <button type="button" class="stepper-btn stepper-up" data-target-input="urineOutputInput" tabindex="-1">+</button>
                                 </div>
                                 <div class="quick-add-buttons">
@@ -89,7 +92,7 @@
                         <div id="other-fields" class="form-section">
                             <div class="custom-number-input">
                                 <button type="button" class="stepper-btn stepper-down" data-target-input="bodyTempInput" tabindex="-1">-</button>
-                                <input type="number" class="stateful-input" id="bodyTempInput" data-key="bodyTemp" placeholder="體溫 (°C)" step="0.1" min="34" max="43">
+                                <input type="number" class="stateful-input" id="bodyTempInput" data-key="bodyTemp" placeholder="體溫 (°C)" step="0.1" min="34" max="43" inputmode="decimal">
                                 <button type="button" class="stepper-btn stepper-up" data-target-input="bodyTempInput" tabindex="-1">+</button>
                             </div>
                             <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
