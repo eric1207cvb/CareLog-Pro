@@ -319,10 +319,10 @@ textarea:focus {
 }
 
 .form-section.active { display: grid }
-#med-fields.form-section.active { display: block }
+#med-fields.form-section.active,
+#other-fields.form-section.active { display: block }
 
-.diet-input-wrapper,
-#other-fields.form-section {
+.diet-input-wrapper {
     grid-column: 1 / -1;
 }
 
@@ -456,7 +456,6 @@ th {
     border: 1px solid var(--border-color);
     border-radius: var(--border-radius-md);
     max-width: 100%;
-    box-sizing: border-box;
 }
 
 /* =================================
@@ -503,6 +502,60 @@ th {
 /* =================================
    6. Utility & Optimized Components
    ================================= */
+
+/* --- 生命徵象網格樣式 --- */
+.vital-signs-grid {
+    grid-column: 1 / -1; 
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    border: 1px solid var(--border-color);
+    padding: 20px;
+    border-radius: var(--border-radius-md);
+    margin-bottom: 15px;
+}
+
+.vital-signs-grid legend {
+    padding: 0 10px;
+    margin-left: 10px;
+    font-weight: 500;
+    color: var(--text-secondary);
+}
+
+.input-group-labeled {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.input-group-labeled label {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding-left: 2px;
+}
+
+.grid-col-span-2 {
+    grid-column: 1 / -1;
+}
+
+.bp-input-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.bp-separator {
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    padding: 0 5px;
+}
+
+.bp-input-group .custom-number-input {
+    flex: 1;
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;

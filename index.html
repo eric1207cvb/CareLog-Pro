@@ -90,12 +90,58 @@
                             <button type="button" id="addMedicationBtn" class="btn btn-info">+ 新增用藥項目</button>
                         </div>
                         <div id="other-fields" class="form-section">
-                            <div class="custom-number-input">
-                                <button type="button" class="stepper-btn stepper-down" data-target-input="bodyTempInput" tabindex="-1">-</button>
-                                <input type="number" class="stateful-input" id="bodyTempInput" data-key="bodyTemp" placeholder="體溫 (°C)" step="0.1" min="34" max="43" inputmode="decimal">
-                                <button type="button" class="stepper-btn stepper-up" data-target-input="bodyTempInput" tabindex="-1">+</button>
-                            </div>
-                            <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、生命徵象等"></textarea>
+                            <fieldset class="vital-signs-grid">
+                                <legend>生命徵象</legend>
+                                <div class="input-group-labeled">
+                                    <label for="bodyTempInput">體溫 (°C)</label>
+                                    <div class="custom-number-input">
+                                        <button type="button" class="stepper-btn stepper-down" data-target-input="bodyTempInput" tabindex="-1">-</button>
+                                        <input type="number" class="stateful-input" id="bodyTempInput" data-key="bodyTemp" step="0.1" min="34" max="43" inputmode="decimal">
+                                        <button type="button" class="stepper-btn stepper-up" data-target-input="bodyTempInput" tabindex="-1">+</button>
+                                    </div>
+                                </div>
+                                <div class="input-group-labeled">
+                                    <label for="pulseInput">脈搏/心率 (次/分)</label>
+                                    <div class="custom-number-input">
+                                        <button type="button" class="stepper-btn stepper-down" data-target-input="pulseInput" tabindex="-1">-</button>
+                                        <input type="number" class="stateful-input" id="pulseInput" data-key="pulse" min="0" inputmode="decimal">
+                                        <button type="button" class="stepper-btn stepper-up" data-target-input="pulseInput" tabindex="-1">+</button>
+                                    </div>
+                                </div>
+                                <div class="input-group-labeled">
+                                    <label for="respirationInput">呼吸 (次/分)</label>
+                                    <div class="custom-number-input">
+                                        <button type="button" class="stepper-btn stepper-down" data-target-input="respirationInput" tabindex="-1">-</button>
+                                        <input type="number" class="stateful-input" id="respirationInput" data-key="respiration" min="0" inputmode="decimal">
+                                        <button type="button" class="stepper-btn stepper-up" data-target-input="respirationInput" tabindex="-1">+</button>
+                                    </div>
+                                </div>
+                                <div class="input-group-labeled grid-col-span-2">
+                                    <label for="bpSystolicInput">血壓 (收縮壓 / 舒張壓 mmHg)</label>
+                                    <div class="bp-input-group">
+                                        <div class="custom-number-input">
+                                            <button type="button" class="stepper-btn stepper-down" data-target-input="bpSystolicInput" tabindex="-1">-</button>
+                                            <input type="number" class="stateful-input" id="bpSystolicInput" data-key="bpSystolic" min="0" inputmode="decimal" placeholder="收縮壓">
+                                            <button type="button" class="stepper-btn stepper-up" data-target-input="bpSystolicInput" tabindex="-1">+</button>
+                                        </div>
+                                        <span class="bp-separator">/</span>
+                                        <div class="custom-number-input">
+                                            <button type="button" class="stepper-btn stepper-down" data-target-input="bpDiastolicInput" tabindex="-1">-</button>
+                                            <input type="number" class="stateful-input" id="bpDiastolicInput" data-key="bpDiastolic" min="0" inputmode="decimal" placeholder="舒張壓">
+                                            <button type="button" class="stepper-btn stepper-up" data-target-input="bpDiastolicInput" tabindex="-1">+</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="input-group-labeled">
+                                    <label for="drainageInput">引流管 (ml)</label>
+                                    <div class="custom-number-input">
+                                        <button type="button" class="stepper-btn stepper-down" data-target-input="drainageInput" tabindex="-1">-</button>
+                                        <input type="number" class="stateful-input" id="drainageInput" data-key="drainage" min="0" inputmode="decimal">
+                                        <button type="button" class="stepper-btn stepper-up" data-target-input="drainageInput" tabindex="-1">+</button>
+                                    </div>
+                                </div>
+                            </fieldset>
+                            <textarea class="stateful-input" data-key="specialObservation" placeholder="特殊觀察、補充說明等"></textarea>
                         </div>
                     </div>
                     <div class="form-actions">
@@ -110,15 +156,14 @@
                             <table id="recordsTable">
                                 <thead>
                                     <tr>
-                                        <th>時間</th><th>飲食</th><th>附註描述</th><th>水分 (ml)</th><th>體溫 (°C)</th><th>排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>
-                                    </tr>
+                                        </tr>
                                 </thead>
                                 <tbody></tbody>
                             </table>
                         </div>
                     </section>
                     <section class="chart-section">
-                        <h2>最近七日飲水與排尿量趨勢圖</h2>
+                        <h2>最近七日總攝入與總排出量趨勢圖</h2>
                         <div class="chart-container"><canvas id="ioChart"></canvas></div>
                     </section>
                 </div>

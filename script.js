@@ -70,22 +70,37 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     function initializeState(){ currentRecordState = { dietContent: [], medications: [] }; }
     function saveAllData(){ localStorage.setItem('carelog-all-patients', JSON.stringify(allPatientData)); }
+    
     function mergeDataIntoRecord(targetRecord, newData) {
-        ['waterAmount', 'urineOutput'].forEach(key => {
-            const oldValue = parseFloat(targetRecord[key]) || 0;
-            const newValue = parseFloat(newData[key]) || 0;
-            if (newValue > 0) targetRecord[key] = oldValue + newValue;
+        // 合併所有數值型別的欄位
+        ['waterAmount', 'urineOutput', 'bodyTemp', 'pulse', 'respiration', 'bpSystolic', 'bpDiastolic', 'drainage'].forEach(key => {
+            const newValue = parseFloat(newData[key]);
+            if (!isNaN(newValue)) {
+                if (key === 'bodyTemp' && newValue > 0) { // 體溫，有新值就覆蓋
+                    targetRecord[key] = newValue;
+                } else if (key !== 'bodyTemp') { // 其他數值，累加
+                    const oldValue = parseFloat(targetRecord[key]) || 0;
+                    targetRecord[key] = oldValue + newValue;
+                }
+            }
         });
-        ['dietNotes', 'bowelMovement', 'specialObservation', 'bodyTemp'].forEach(key => {
+    
+        // 合併所有文字型別的欄位 (若有新值則覆蓋)
+        ['dietNotes', 'bowelMovement', 'specialObservation'].forEach(key => {
             if (newData[key] && String(newData[key]).trim() !== '') {
                 targetRecord[key] = newData[key];
             }
         });
+    
+        // 合併陣列型別的欄位
         targetRecord.dietContent = Array.from(new Set([...(targetRecord.dietContent || []), ...(newData.dietContent || [])]));
         const newMeds = (newData.medications || []).filter(med => med.name || med.route || med.dosage);
         targetRecord.medications = (targetRecord.medications || []).concat(newMeds);
+    
+        // 更新時間戳
         targetRecord.time = new Date().toISOString();
     }
+
     function findMergeableRecord(patientData) {
         if (!patientData || !patientData.records || patientData.records.length === 0) return null;
         const lastRecord = patientData.records[patientData.records.length - 1];
@@ -101,53 +116,67 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Chart & PDF Functions ---
-    function processDataForChart(records) {
-        const last7DaysData = {};
-        const labels = [];
-        for (let i = 6; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(date.getDate() - i);
-            const key = date.toISOString().split('T')[0];
-            const label = date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
-            labels.push(label);
-            last7DaysData[key] = { intake: 0, output: 0 };
+function processDataForChart(records) {
+    const last7DaysData = {};
+    const labels = [];
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const key = date.toISOString().split('T')[0];
+        const label = date.toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' });
+        labels.push(label);
+        last7DaysData[key] = { intake: 0, output: 0 };
+    }
+
+    (records || []).forEach(record => {
+        const recordDateKey = record.time.split('T')[0];
+        if (last7DaysData[recordDateKey]) {
+            // 計算總攝入量 (目前只有水分)
+            last7DaysData[recordDateKey].intake += parseFloat(record.waterAmount) || 0;
+            
+            // 【關鍵修改】計算總排出量 (排尿量 + 引流管量)
+            const urine = parseFloat(record.urineOutput) || 0;
+            const drainage = parseFloat(record.drainage) || 0;
+            last7DaysData[recordDateKey].output += urine + drainage;
         }
-        (records || []).forEach(record => {
-            const recordDateKey = record.time.split('T')[0];
-            if (last7DaysData[recordDateKey]) {
-                last7DaysData[recordDateKey].intake += parseFloat(record.waterAmount) || 0;
-                last7DaysData[recordDateKey].output += parseFloat(record.urineOutput) || 0;
-            }
-        });
-        const intakeData = Object.values(last7DaysData).map(day => day.intake);
-        const outputData = Object.values(last7DaysData).map(day => day.output);
-        return { labels, intakeData, outputData };
-    }
-    function renderChart(patientData, optionsOverrides = {}) {
-        if (!dom.ioChartCanvas) return;
-        const chartData = processDataForChart(patientData.records);
-        if (ioChartInstance) ioChartInstance.destroy();
-        const defaultOptions = {
-            responsive: true, maintainAspectRatio: false, animation: {},
-            scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
-            plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
-        };
-        const finalOptions = { ...defaultOptions, ...optionsOverrides };
-        ioChartInstance = new Chart(dom.ioChartCanvas, {
-            type: 'bar',
-            data: {
-                labels: chartData.labels,
-                datasets: [{
-                    label: '攝取水量 (ml)', data: chartData.intakeData,
-                    backgroundColor: 'rgba(0, 123, 255, 0.5)', borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 1
-                }, {
-                    label: '總排尿量 (ml)', data: chartData.outputData,
-                    backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1
-                }]
-            },
-            options: finalOptions
-        });
-    }
+    });
+
+    const intakeData = Object.values(last7DaysData).map(day => day.intake);
+    const outputData = Object.values(last7DaysData).map(day => day.output);
+    return { labels, intakeData, outputData };
+}
+function renderChart(patientData, optionsOverrides = {}) {
+    if (!dom.ioChartCanvas) return;
+    const chartData = processDataForChart(patientData.records);
+    if (ioChartInstance) ioChartInstance.destroy();
+    const defaultOptions = {
+        responsive: true, maintainAspectRatio: false, animation: {},
+        scales: { y: { beginAtZero: true, title: { display: true, text: '總量 (ml)' } } },
+        plugins: { legend: { position: 'top' }, tooltip: { mode: 'index', intersect: false } }
+    };
+    const finalOptions = { ...defaultOptions, ...optionsOverrides };
+    ioChartInstance = new Chart(dom.ioChartCanvas, {
+        type: 'bar',
+        data: {
+            labels: chartData.labels,
+            datasets: [{
+                label: '總攝入量 (ml)', // Minor update for clarity
+                data: chartData.intakeData,
+                backgroundColor: 'rgba(0, 123, 255, 0.5)', 
+                borderColor: 'rgba(0, 123, 255, 1)', 
+                borderWidth: 1
+            }, {
+                // 【關鍵修改】更新圖例文字
+                label: '總排出量 (ml)', 
+                data: chartData.outputData,
+                backgroundColor: 'rgba(23, 162, 184, 0.5)', 
+                borderColor: 'rgba(23, 162, 184, 1)', 
+                borderWidth: 1
+            }]
+        },
+        options: finalOptions
+    });
+}
     function exportPatientDataAsPDF() {
         if (!currentPatientInternalId || typeof html2pdf === 'undefined') {
             console.error("未選擇病人或 html2pdf 函式庫未載入。");
@@ -312,25 +341,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderTable(patientData) {
         if (!currentPatientInternalId) return;
+        const tableHead = document.querySelector('#recordsTable thead tr');
+        tableHead.innerHTML = `<th>時間</th><th>飲食</th><th>附註描述</th><th>水分(ml)</th><th>生命徵象與排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>`;
         dom.recordsTableBody.innerHTML = '';
         const sortedRecords = (patientData.records || []).slice().sort((a, b) => new Date(b.time) - new Date(a.time));
         if (sortedRecords.length === 0) {
-            dom.recordsTableBody.innerHTML = '<tr><td colspan="9">這位病人目前沒有任何紀錄。</td></tr>';
+            dom.recordsTableBody.innerHTML = `<tr><td colspan="8">這位病人目前沒有任何紀錄。</td></tr>`;
             return;
         }
         sortedRecords.forEach(record => {
             const row = document.createElement('tr');
             const recordDate = new Date(record.time);
             const timeInfo = recordDate.toLocaleString('zh-TW', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false }).replace(' ', '<br>');
+            
+            let vitalsAndOutputInfo = [];
+            if (record.bodyTemp) vitalsAndOutputInfo.push(`體溫: ${parseFloat(record.bodyTemp).toFixed(1)}°C`);
+            if (record.pulse) vitalsAndOutputInfo.push(`心率: ${record.pulse}`);
+            if (record.respiration) vitalsAndOutputInfo.push(`呼吸: ${record.respiration}`);
+            if (record.bpSystolic && record.bpDiastolic) vitalsAndOutputInfo.push(`血壓: ${record.bpSystolic}/${record.bpDiastolic}`);
+            if (record.urineOutput) vitalsAndOutputInfo.push(`排尿: ${record.urineOutput}ml`);
+            if (record.drainage) vitalsAndOutputInfo.push(`引流: ${record.drainage}ml`);
+            if (record.bowelMovement) vitalsAndOutputInfo.push(`排便: ${record.bowelMovement}`);
+
             const dietInfo = (Array.isArray(record.dietContent) && record.dietContent.length > 0) ? record.dietContent.join(', ') : '---';
             const dietNotesInfo = record.dietNotes || '---';
             const waterAmountInfo = record.waterAmount || '---';
-            const bodyTempInfo = record.bodyTemp ? `${parseFloat(record.bodyTemp).toFixed(1)}` : '---';
-            const outputInfo = `${record.urineOutput ? `尿:${record.urineOutput}ml` : ''}${record.bowelMovement ? ` 便:${record.bowelMovement}` : ''}`.trim() || '---';
             const medInfo = (record.medications && record.medications.length > 0) ? record.medications.map(med => `${med.name || '未命名'} (${med.dosage || '未註明'})`).join('<br>') : '---';
             const observationInfo = record.specialObservation || '---';
             const actionsInfo = `<button class="delete-btn" data-id="${record.id}" title="刪除">🗑️</button>`;
-            row.innerHTML = `<td>${timeInfo}</td><td>${dietInfo}</td><td>${dietNotesInfo}</td><td>${waterAmountInfo}</td><td>${bodyTempInfo}</td><td>${outputInfo}</td><td>${medInfo}</td><td>${observationInfo}</td><td>${actionsInfo}</td>`;
+            
+            row.innerHTML = `
+                <td>${timeInfo}</td>
+                <td>${dietInfo}</td>
+                <td>${dietNotesInfo}</td>
+                <td>${waterAmountInfo}</td>
+                <td>${vitalsAndOutputInfo.length > 0 ? vitalsAndOutputInfo.join('<br>') : '---'}</td>
+                <td>${medInfo}</td>
+                <td>${observationInfo}</td>
+                <td>${actionsInfo}</td>
+            `;
             dom.recordsTableBody.appendChild(row);
         });
     }
