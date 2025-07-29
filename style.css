@@ -663,13 +663,14 @@ th {
     }
 
     /* 隱藏所有不需要列印的 UI 元素 */
-    .patient-management, 
-    .form-wrapper, 
-    #chartControls, 
-    .chart-container,
-    header h1 {
-        display: none !important;
-    }
+ .patient-management, 
+.form-wrapper, 
+#chartControls, 
+.chart-container,
+#chartTitle, /* <-- 新增這一行 */
+header h1 {
+    display: none !important;
+}
 
     /* 讓報表內容佔滿整個頁面 */
     .container, .main-content-wrapper, .right-panel {

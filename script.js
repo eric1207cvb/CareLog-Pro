@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const MERGE_WINDOW_MINUTES = 10;
     const DIET_OPTIONS = ["水", "牛奶", "豆漿", "果汁", "茶", "安素", "完膳", "補體素", "早餐", "午餐", "晚餐", "點心", "白飯", "稀飯", "麵食", "水果", "蔬菜", "魚肉", "雞肉", "豬肉", "餅乾"];
     const MED_ROUTES = ['口服', '針劑', '塗抹', '吸入', '外用', '其他'];
+    const NORMAL_RANGES = {
+        temp: { min: 36.1, max: 37.5, label: '正常體溫範圍' },
+        pulse: { min: 60, max: 100, label: '正常心率範圍' }
+    };
     
     let allPatientData;
     try {
@@ -134,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         const intakeData = Object.values(data).map(day => day.intake);
         const outputData = Object.values(data).map(day => day.output);
-        return { labels, datasets: [ { label: '總攝入量 (ml)', data: intakeData, backgroundColor: 'rgba(0, 123, 255, 0.5)', borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 1 }, { label: '總排出量 (ml)', data: outputData, backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1 } ] };
+        return { labels, datasets: [ { label: '總攝入量', data: intakeData, backgroundColor: 'rgba(0, 123, 255, 0.5)', borderColor: 'rgba(0, 123, 255, 1)', borderWidth: 1 }, { label: '總排出量', data: outputData, backgroundColor: 'rgba(23, 162, 184, 0.5)', borderColor: 'rgba(23, 162, 184, 1)', borderWidth: 1 } ] };
     }
 
     function processSingleVitalDataForChart(records, key, label, color) {
@@ -146,7 +150,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.hasOwnProperty(recordDateKey) && value > 0) { data[recordDateKey] = value; }
         });
         const vitalData = Object.values(data);
-        return { labels, datasets: [{ label, data: vitalData, borderColor: color, backgroundColor: `${color}33`, fill: true, tension: 0.1, spanGaps: false }] };
+        return { labels, datasets: [{ label: label, data: vitalData, borderColor: color, backgroundColor: `${color}33`, fill: false, tension: 0.2, pointRadius: 5, pointHoverRadius: 8, pointBackgroundColor: color }] };
     }
 
     function processBPDataForChart(records) {
@@ -162,40 +166,116 @@ document.addEventListener('DOMContentLoaded', () => {
         const systolicData = Object.values(data).map(d => d.systolic);
         const diastolicData = Object.values(data).map(d => d.diastolic);
         return { labels, datasets: [
-            { label: '收縮壓 (mmHg)', data: systolicData, borderColor: 'rgba(220, 53, 69, 1)', backgroundColor: 'rgba(220, 53, 69, 0.2)', fill: false, tension: 0.1 },
-            { label: '舒張壓 (mmHg)', data: diastolicData, borderColor: 'rgba(25, 135, 84, 1)', backgroundColor: 'rgba(25, 135, 84, 0.2)', fill: false, tension: 0.1 }
+            { label: '收縮壓', data: systolicData, borderColor: 'rgba(220, 53, 69, 1)', backgroundColor: 'rgba(220, 53, 69, 0.2)', fill: false, tension: 0.2, pointRadius: 5, pointHoverRadius: 8, pointBackgroundColor: 'rgba(220, 53, 69, 1)' },
+            { label: '舒張壓', data: diastolicData, borderColor: 'rgba(25, 135, 84, 1)', backgroundColor: 'rgba(25, 135, 84, 0.2)', fill: false, tension: 0.2, pointRadius: 5, pointHoverRadius: 8, pointBackgroundColor: 'rgba(25, 135, 84, 1)' }
         ]};
+    }
+
+    function getChartOptions(chartType) {
+        let options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: false } },
+            plugins: {
+                legend: { position: 'top' },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            let label = context.dataset.label || '';
+                            if (label) { label += ': '; }
+                            if (context.parsed.y !== null) {
+                                let unit = '';
+                                if (chartType === 'io') unit = ' ml';
+                                if (chartType === 'temp') unit = ' °C';
+                                if (chartType === 'pulse') unit = ' 次/分';
+                                if (chartType === 'bp') unit = ' mmHg';
+                                label += context.parsed.y + unit;
+                            }
+                            return label;
+                        }
+                    }
+                },
+                annotation: { annotations: {} }
+            }
+        };
+
+        switch (chartType) {
+            case 'io':
+                options.scales.y.beginAtZero = true;
+                break;
+            case 'temp':
+                options.scales.y.min = 35;
+                options.scales.y.max = 41;
+                options.plugins.annotation.annotations.normalTempRange = {
+                    type: 'box',
+                    yMin: NORMAL_RANGES.temp.min,
+                    yMax: NORMAL_RANGES.temp.max,
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    borderColor: 'rgba(40, 167, 69, 0.3)',
+                    borderWidth: 1,
+                    label: { content: NORMAL_RANGES.temp.label, display: true, position: 'start', color: 'rgba(40, 167, 69, 0.7)' }
+                };
+                break;
+            case 'pulse':
+                options.plugins.annotation.annotations.normalPulseRange = {
+                    type: 'box',
+                    yMin: NORMAL_RANGES.pulse.min,
+                    yMax: NORMAL_RANGES.pulse.max,
+                    backgroundColor: 'rgba(0, 123, 255, 0.05)',
+                    borderColor: 'rgba(0, 123, 255, 0.2)',
+                    borderWidth: 1,
+                    label: { content: NORMAL_RANGES.pulse.label, display: true, position: 'start', color: 'rgba(0, 123, 255, 0.5)' }
+                };
+                break;
+            case 'bp':
+                options.scales.y.min = 50;
+                options.scales.y.max = 180;
+                options.plugins.annotation.annotations = {
+                    systolicLine: {
+                        type: 'line', yMin: 130, yMax: 130,
+                        borderColor: 'rgba(255, 99, 132, 0.8)', borderWidth: 2, borderDash: [6, 6],
+                        label: { content: '收縮壓警戒值 (130)', display: true, position: 'end', color: 'rgba(255, 99, 132, 1)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }
+                    },
+                    diastolicLine: {
+                        type: 'line', yMin: 80, yMax: 80,
+                        borderColor: 'rgba(255, 159, 64, 0.8)', borderWidth: 2, borderDash: [6, 6],
+                        label: { content: '舒張壓警戒值 (80)', display: true, position: 'end', color: 'rgba(255, 159, 64, 1)', backgroundColor: 'rgba(255, 255, 255, 0.8)' }
+                    }
+                };
+                break;
+        }
+        return options;
+    }
+
+    function getChartData(chartType, records) {
+        switch (chartType) {
+            case 'io': return processIODataForChart(records);
+            case 'temp': return processSingleVitalDataForChart(records, 'bodyTemp', '體溫', 'rgba(255, 99, 132, 1)');
+            case 'pulse': return processSingleVitalDataForChart(records, 'pulse', '脈搏/心率', 'rgba(54, 162, 235, 1)');
+            case 'bp': return processBPDataForChart(records);
+            default: return null;
+        }
+    }
+
+    function getChartTypeString(chartId) {
+        return chartId === 'io' ? 'bar' : 'line';
     }
 
     function updateChart(canvas, type, data, options) {
         if (mainChartInstance) { mainChartInstance.destroy(); }
-        mainChartInstance = new Chart(canvas, { type, data, options });
+        mainChartInstance = new Chart(canvas, { type: type, data: data, options: options });
     }
     
     function renderCurrentChart() {
         if (!currentPatientInternalId) return;
         const patientData = allPatientData[currentPatientInternalId];
-        let chartData, chartType = 'line', chartOptions = { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true } }, plugins: { legend: { position: 'top' } } };
-        
-        switch (currentChartType) {
-            case 'io':
-                chartData = processIODataForChart(patientData.records);
-                chartType = 'bar';
-                dom.chartTitle.textContent = '總攝入與總排出量趨勢圖';
-                break;
-            case 'temp':
-                chartData = processSingleVitalDataForChart(patientData.records, 'bodyTemp', '體溫 (°C)', 'rgba(255, 99, 132, 1)');
-                dom.chartTitle.textContent = '體溫趨勢圖';
-                break;
-            case 'pulse':
-                chartData = processSingleVitalDataForChart(patientData.records, 'pulse', '脈搏/心率 (次/分)', 'rgba(54, 162, 235, 1)');
-                dom.chartTitle.textContent = '脈搏/心率趨勢圖';
-                break;
-            case 'bp':
-                chartData = processBPDataForChart(patientData.records);
-                dom.chartTitle.textContent = '血壓趨勢圖';
-                break;
-        }
+        const chartData = getChartData(currentChartType, patientData.records);
+        const chartOptions = getChartOptions(currentChartType);
+        const chartType = getChartTypeString(currentChartType);
+        dom.chartTitle.textContent = {
+            io: '總攝入與總排出量趨勢圖', temp: '體溫趨勢圖',
+            pulse: '脈搏/心率趨勢圖', bp: '血壓趨勢圖'
+        }[currentChartType];
         updateChart(dom.mainChartCanvas, chartType, chartData, chartOptions);
     }
 
@@ -204,35 +284,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const patientData = allPatientData[currentPatientInternalId];
         dom.printChartsContainer.innerHTML = '';
         dom.reportHeader.textContent = `${patientData.name} - 照護紀錄總結報告`;
-
         const chartConfigs = [
-            { title: '總量趨勢', type: 'bar', data: processIODataForChart(patientData.records) },
-            { title: '體溫趨勢', type: 'line', data: processSingleVitalDataForChart(patientData.records, 'bodyTemp', '體溫 (°C)') },
-            { title: '脈搏趨勢', type: 'line', data: processSingleVitalDataForChart(patientData.records, 'pulse', '脈搏/心率') },
-            { title: '血壓趨勢', type: 'line', data: processBPDataForChart(patientData.records) }
+            { id: 'io', title: '總量趨勢' }, { id: 'temp', title: '體溫趨勢' },
+            { id: 'pulse', title: '脈搏趨勢' }, { id: 'bp', title: '血壓趨勢' }
         ];
-
         const chartImagePromises = chartConfigs.map(config => {
             return new Promise(resolve => {
                 const tempCanvas = document.createElement('canvas');
-                // 為了避免 Chart.js 的響應式尺寸問題，我們暫時給它一個固定尺寸
-                tempCanvas.width = 400;
-                tempCanvas.height = 300;
-
+                tempCanvas.width = 400; tempCanvas.height = 300;
+                const chartData = getChartData(config.id, patientData.records);
+                const chartOptions = getChartOptions(config.id);
+                chartOptions.animation = false; chartOptions.responsive = false; chartOptions.maintainAspectRatio = false;
                 const chart = new Chart(tempCanvas, {
-                    type: config.type,
-                    data: config.data,
-                    options: {
-                        responsive: false, // 關閉響應式
-                        maintainAspectRatio: false,
-                        animation: false, // 關閉動畫以立即渲染
-                        plugins: {
-                            legend: { display: config.type !== 'line' || config.title === '血壓趨勢' }
-                        }
-                    }
+                    type: getChartTypeString(config.id), data: chartData, options: chartOptions
                 });
-
-                // Chart.js 渲染需要極短的時間
                 setTimeout(() => {
                     const container = document.createElement('div');
                     container.className = 'print-chart-item';
@@ -241,16 +306,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const img = new Image();
                     img.src = chart.toBase64Image();
                     img.style.width = '100%';
-                    container.appendChild(titleEl);
-container.appendChild(img);
+                    container.appendChild(titleEl); container.appendChild(img);
                     resolve(container);
                     chart.destroy();
-                }, 100); // 給予 100ms 的渲染緩衝時間
+                }, 100);
             });
         });
-        
         const chartElements = await Promise.all(chartImagePromises);
-        dom.printChartsContainer.innerHTML = ''; // 再次清空以防萬一
+        dom.printChartsContainer.innerHTML = '';
         chartElements.forEach(el => dom.printChartsContainer.appendChild(el));
     }
 
@@ -270,7 +333,6 @@ container.appendChild(img);
     
     function selectPatient(internalId) {
         currentPatientInternalId = internalId;
-        // 清理 UI 和狀態
         const formSections = document.querySelectorAll('.form-section');
         formSections.forEach(section => {
             const inputs = section.querySelectorAll('input, textarea');
@@ -309,29 +371,29 @@ container.appendChild(img);
     }
 
     function clearFormAndState() {
+        if (dom.recordForm) dom.recordForm.reset();
         initializeState();
-        dom.recordForm.reset();
         renderMedicationsList();
         updateDietSelectionUI();
     }
     
     function renderDietOptionsGrid() {
-        const dietOptionsGrid = document.getElementById('diet-options-grid');
-        dietOptionsGrid.innerHTML = '';
+        if (!dom.dietOptionsGrid) return;
+        dom.dietOptionsGrid.innerHTML = '';
         DIET_OPTIONS.forEach(option => {
             const button = document.createElement('button');
             button.type = 'button';
             button.className = 'diet-option-btn';
             button.textContent = option;
             button.dataset.diet = option;
-            dietOptionsGrid.appendChild(button);
+            dom.dietOptionsGrid.appendChild(button);
         });
     }
 
     function updateDietSelectionUI() {
-        const dietTagsContainer = document.getElementById('diet-tags-container');
+        if (!dom.dietTagsContainer) return;
         const selectedItems = currentRecordState.dietContent || [];
-        dietTagsContainer.innerHTML = "";
+        dom.dietTagsContainer.innerHTML = "";
         selectedItems.forEach(item => {
             const tag = document.createElement('span');
             tag.className = 'tag';
@@ -342,7 +404,7 @@ container.appendChild(img);
             removeBtn.textContent = '×';
             removeBtn.dataset.diet = item;
             tag.appendChild(removeBtn);
-            dietTagsContainer.appendChild(tag);
+            dom.dietTagsContainer.appendChild(tag);
         });
         document.querySelectorAll('.diet-option-btn').forEach(btn => {
             btn.classList.toggle('is-selected', selectedItems.includes(btn.dataset.diet));
@@ -350,28 +412,28 @@ container.appendChild(img);
     }
     
     function renderMedicationsList() {
-        const medicationsList = document.getElementById('medications-list');
-        medicationsList.innerHTML = "";
+        if (!dom.medicationsList) return;
+        dom.medicationsList.innerHTML = "";
         if (!currentRecordState.medications || currentRecordState.medications.length === 0) {
             const placeholder = document.createElement('div');
             placeholder.textContent = '點擊下方「＋」按鈕來新增用藥項目。';
             placeholder.style.textAlign = 'center';
             placeholder.style.color = 'var(--text-secondary)';
             placeholder.style.padding = '20px 0';
-            medicationsList.appendChild(placeholder);
+            dom.medicationsList.appendChild(placeholder);
             return;
         }
         currentRecordState.medications.forEach((med, index) => {
             const entryDiv = document.createElement('div');
             entryDiv.className = 'medication-entry';
             const routeOptions = MED_ROUTES.map(route => `<option value="${route}" ${med.route === route ? 'selected' : ''}>${route}</option>`).join('');
-            entryDiv.innerHTML = `<div class="medication-grid"><div class.medication-fields"><input type="text" placeholder="藥品名稱" data-med-index="${index}" data-med-key="name" value="${med.name || ''}"><select data-med-index="${index}" data-med-key="route">${routeOptions}</select><input type="text" placeholder="劑量/頻率" data-med-index="${index}" data-med-key="dosage" value="${med.dosage || ''}"></div><button type="button" class="med-delete-btn" title="刪除此藥物" data-med-index="${index}">🗑️</button></div>`;
-            medicationsList.appendChild(entryDiv);
+            entryDiv.innerHTML = `<div class="medication-grid"><div class="medication-fields"><input type="text" placeholder="藥品名稱" data-med-index="${index}" data-med-key="name" value="${med.name || ''}"><select data-med-index="${index}" data-med-key="route">${routeOptions}</select><input type="text" placeholder="劑量/頻率" data-med-index="${index}" data-med-key="dosage" value="${med.dosage || ''}"></div><button type="button" class="med-delete-btn" title="刪除此藥物" data-med-index="${index}">🗑️</button></div>`;
+            dom.medicationsList.appendChild(entryDiv);
         });
     }
 
     function renderTable(patientData) {
-        if (!currentPatientInternalId) return;
+        if (!currentPatientInternalId || !dom.recordsTableBody) return;
         const tableHead = document.querySelector('#recordsTable thead tr');
         tableHead.innerHTML = `<th>時間</th><th>飲食</th><th>附註描述</th><th>水分(ml)</th><th>生命徵象與排泄</th><th>用藥</th><th>特殊觀察</th><th>操作</th>`;
         dom.recordsTableBody.innerHTML = '';
@@ -406,9 +468,8 @@ container.appendChild(img);
     // --- EVENT LISTENERS ---
     dom.printReportBtn.addEventListener('click', () => {
         if (!currentPatientInternalId) return;
-        // 列印前最後一次確保圖表是最新的
         prepareChartsForPrinting().then(() => {
-            window.print();
+            setTimeout(() => window.print(), 200);
         });
     });
 
@@ -465,8 +526,7 @@ container.appendChild(img);
     });
 
     function handleAddCustomDiet() {
-        const customDietInput = document.getElementById('customDietInput');
-        const customItem = customDietInput.value.trim();
+        const customItem = dom.customDietInput.value.trim();
         if (!customItem) return;
         const dietContent = currentRecordState.dietContent || [];
         if (dietContent.length >= 5) { showToast('最多只能新增五項飲食內容。'); return; }
@@ -475,13 +535,13 @@ container.appendChild(img);
             currentRecordState.dietContent = dietContent;
             updateDietSelectionUI();
         }
-        customDietInput.value = '';
+        dom.customDietInput.value = '';
     }
 
-    document.getElementById('addCustomDietBtn').addEventListener('click', handleAddCustomDiet);
-    document.getElementById('customDietInput').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomDiet(); } });
+    dom.addCustomDietBtn.addEventListener('click', handleAddCustomDiet);
+    dom.customDietInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); handleAddCustomDiet(); } });
     
-    document.getElementById('diet-options-grid').addEventListener('click', e => {
+    dom.dietOptionsGrid.addEventListener('click', e => {
         const target = e.target;
         if (target.matches('.diet-option-btn')) {
             const item = target.dataset.diet;
@@ -498,7 +558,7 @@ container.appendChild(img);
         }
     });
 
-    document.getElementById('diet-tags-container').addEventListener('click', e => {
+    dom.dietTagsContainer.addEventListener('click', e => {
         const target = e.target.closest('.tag-remove-btn');
         if (target) {
             const item = target.dataset.diet;
@@ -514,7 +574,7 @@ container.appendChild(img);
 
     dom.medicationsList.addEventListener('input', e => { if (e.target.matches('[data-med-index]')) { const index = parseInt(e.target.dataset.medIndex, 10); const key = e.target.dataset.medKey; currentRecordState.medications[index][key] = e.target.value; } });
     dom.medicationsList.addEventListener('click', e => { if (e.target.matches('.med-delete-btn')) { const index = parseInt(e.target.dataset.medIndex, 10); currentRecordState.medications.splice(index, 1); renderMedicationsList(); } });
-    document.getElementById('addMedicationBtn').addEventListener('click', () => { if (!currentRecordState.medications) currentRecordState.medications = []; currentRecordState.medications.push({ name: '', route: '口服', dosage: '' }); renderMedicationsList(); });
+    dom.addMedicationBtn.addEventListener('click', () => { if (!currentRecordState.medications) currentRecordState.medications = []; currentRecordState.medications.push({ name: '', route: '口服', dosage: '' }); renderMedicationsList(); });
 
     dom.allStatefulInputs.forEach(input => { input.addEventListener('input', e => { const key = e.target.dataset.key; if (key) currentRecordState[key] = e.target.value; }); });
 
@@ -577,7 +637,8 @@ container.appendChild(img);
             const targetInput = document.getElementById(targetInputId);
             if (targetInput && !isNaN(amountToAdd)) {
                 targetInput.value = (parseInt(targetInput.value, 10) || 0) + amountToAdd;
-                targetInput.dispatchEvent(new Event('input'));
+                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                triggerHapticFeedback();
             }
         }
         
@@ -585,15 +646,26 @@ container.appendChild(img);
         if (stepperBtn) {
             const targetInput = document.getElementById(stepperBtn.dataset.targetInput);
             if (targetInput) {
+                const baseStep = parseFloat(targetInput.step) || 1;
+                const step = e.shiftKey ? (baseStep * 10) : baseStep;
                 let currentValue = parseFloat(targetInput.value) || 0;
-                const step = parseFloat(targetInput.step) || 1;
+                const min = parseFloat(targetInput.min);
+
                 if (stepperBtn.classList.contains('stepper-up')) {
                     currentValue += step;
                 } else {
-                    currentValue = Math.max(0, currentValue - step);
+                    currentValue -= step;
                 }
-                targetInput.value = currentValue;
-                targetInput.dispatchEvent(new Event('input'));
+
+                if (!isNaN(min) && currentValue < min) {
+                    currentValue = min;
+                }
+
+                const decimalPlaces = (baseStep.toString().split('.')[1] || '').length;
+                targetInput.value = currentValue.toFixed(decimalPlaces);
+                
+                targetInput.dispatchEvent(new Event('input', { bubbles: true }));
+                triggerHapticFeedback();
             }
         }
     });
